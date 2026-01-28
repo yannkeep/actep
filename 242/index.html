@@ -4,840 +4,606 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cellules Citoyennes</title>
-    <meta name="description" content="Créez des cellules de veille citoyenne et organisez des ateliers d'intelligence collective sur votre territoire.">
-    <meta name="theme-color" content="#00ff9d">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
-        :root { --bg:#0a0a0f; --card:#12121a; --border:#1e1e2a; --green:#00ff9d; --blue:#00d4ff; --yellow:#ffea00; --pink:#ff0080; --text:#fff; --dim:#888; --muted:#444; }
-        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-        body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; min-height:100dvh; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,system-ui,sans-serif; background:#0a0a0f; color:#fff; min-height:100vh; }
         
-        /* === ONBOARDING === */
-        .onboarding { position:fixed; inset:0; background:var(--bg); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; text-align:center; }
-        .onboarding.hidden { display:none; }
-        .onboarding-logo { font-size:3rem; margin-bottom:1rem; }
-        .onboarding-title { font-size:1.5rem; font-weight:700; color:var(--green); margin-bottom:0.5rem; }
-        .onboarding-subtitle { font-size:1rem; color:var(--dim); margin-bottom:2rem; max-width:300px; line-height:1.5; }
-        .onboarding-steps { display:flex; gap:1.5rem; margin-bottom:2rem; flex-wrap:wrap; justify-content:center; }
-        .onboarding-step { text-align:center; width:100px; }
-        .onboarding-step-icon { font-size:1.5rem; margin-bottom:0.3rem; }
-        .onboarding-step-text { font-size:0.7rem; color:var(--dim); }
-        .onboarding-cta { background:var(--green); color:#000; border:none; padding:1rem 2.5rem; font-size:1rem; font-weight:600; cursor:pointer; border-radius:2rem; transition:transform 0.15s, box-shadow 0.15s; }
-        .onboarding-cta:hover { transform:scale(1.05); box-shadow:0 0 30px rgba(0,255,157,0.4); }
-        .onboarding-skip { margin-top:1rem; background:none; border:none; color:var(--muted); font-size:0.8rem; cursor:pointer; }
+        /* Onboarding */
+        #onboarding { position:fixed; inset:0; background:#0a0a0f; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; text-align:center; }
+        #onboarding.hidden { display:none; }
+        #onboarding h1 { font-size:1.8rem; color:#00ff9d; margin:1rem 0 0.5rem; }
+        #onboarding p { color:#888; max-width:300px; line-height:1.6; margin-bottom:2rem; }
+        #onboarding .steps { display:flex; gap:2rem; margin-bottom:2rem; }
+        #onboarding .step { text-align:center; }
+        #onboarding .step-icon { font-size:2rem; }
+        #onboarding .step-text { font-size:0.75rem; color:#666; margin-top:0.3rem; }
+        #onboarding input { width:100%; max-width:280px; padding:1rem; background:#111; border:1px solid #333; color:#fff; font-size:1rem; margin-bottom:1rem; text-align:center; }
+        #onboarding input:focus { outline:none; border-color:#00ff9d; }
+        #onboarding button { background:#00ff9d; color:#000; border:none; padding:1rem 3rem; font-size:1rem; font-weight:600; cursor:pointer; }
+        #onboarding button:hover { box-shadow:0 0 30px rgba(0,255,157,0.5); }
+        #onboarding .error { color:#ff3366; font-size:0.85rem; margin-top:-0.5rem; margin-bottom:1rem; display:none; }
         
-        /* === APP === */
-        .app { display:flex; flex-direction:column; height:100vh; height:100dvh; }
+        /* App */
+        #app { display:none; height:100vh; }
+        #app.active { display:flex; flex-direction:column; }
         
-        /* === HEADER === */
-        header { background:var(--card); border-bottom:1px solid var(--border); padding:0.75rem 1rem; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
-        .logo { display:flex; align-items:center; gap:0.5rem; font-weight:700; font-size:0.9rem; }
-        .logo-icon { font-size:1.2rem; }
-        .logo-text { color:var(--green); }
-        .header-stats { display:flex; gap:1rem; }
-        .header-stat { text-align:center; }
-        .header-stat-val { font-weight:700; color:var(--green); font-size:0.9rem; }
-        .header-stat-lbl { font-size:0.55rem; color:var(--muted); text-transform:uppercase; }
+        /* Header */
+        header { background:#111; padding:0.75rem 1rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #222; }
+        .logo { font-weight:700; color:#00ff9d; }
+        .stats { display:flex; gap:1.5rem; }
+        .stat-val { font-weight:700; color:#00ff9d; }
+        .stat-lbl { font-size:0.6rem; color:#555; }
+        .menu-btn { display:none; background:none; border:1px solid #333; color:#fff; padding:0.5rem 0.75rem; cursor:pointer; }
+        @media(max-width:768px) { .menu-btn { display:block; } }
         
-        /* === MAIN === */
+        /* Main */
         main { flex:1; display:flex; overflow:hidden; }
         
-        /* === MAP === */
-        .map-container { flex:1; position:relative; }
-        #map { width:100%; height:100%; }
-        .leaflet-container { background:var(--bg); }
-        .leaflet-tile-pane { filter:saturate(0) brightness(0.35) contrast(1.3); }
-        .leaflet-popup-content-wrapper { background:var(--card); color:var(--text); border-radius:0.5rem; box-shadow:0 4px 20px rgba(0,0,0,0.5); }
-        .leaflet-popup-tip { background:var(--card); }
-        .leaflet-popup-close-button { color:var(--dim)!important; }
+        /* Map */
+        #map-wrap { flex:1; position:relative; }
+        #map { width:100%; height:100%; background:#000; }
+        .leaflet-tile-pane { filter:saturate(0) brightness(0.3) contrast(1.3); }
         
-        /* === MAP CONTROLS === */
-        .map-fab { position:absolute; bottom:1.5rem; right:1rem; z-index:500; }
-        .fab { width:56px; height:56px; border-radius:50%; background:var(--green); color:#000; border:none; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 15px rgba(0,255,157,0.4); transition:transform 0.15s; display:flex; align-items:center; justify-content:center; }
+        /* FAB */
+        .fab { position:absolute; bottom:1.5rem; right:1rem; z-index:500; width:56px; height:56px; background:#00ff9d; color:#000; border:none; border-radius:50%; font-size:2rem; cursor:pointer; box-shadow:0 4px 20px rgba(0,255,157,0.4); }
         .fab:hover { transform:scale(1.1); }
         
-        .map-toggles { position:absolute; bottom:1.5rem; left:1rem; z-index:500; display:flex; gap:0.5rem; }
-        .toggle-btn { background:var(--card); border:1px solid var(--border); color:var(--dim); padding:0.5rem 0.75rem; font-size:0.7rem; cursor:pointer; border-radius:2rem; display:flex; align-items:center; gap:0.3rem; transition:all 0.15s; }
-        .toggle-btn:hover { border-color:var(--green); color:var(--green); }
-        .toggle-btn.active { background:var(--green); color:#000; border-color:var(--green); }
+        /* Locate */
+        .locate { position:absolute; top:1rem; right:1rem; z-index:500; width:40px; height:40px; background:#111; border:1px solid #333; color:#fff; cursor:pointer; font-size:1.2rem; }
+        .locate:hover { border-color:#00ff9d; color:#00ff9d; }
         
-        .map-locate { position:absolute; top:1rem; right:1rem; z-index:500; }
-        .locate-btn { width:40px; height:40px; border-radius:50%; background:var(--card); border:1px solid var(--border); color:var(--text); cursor:pointer; font-size:1rem; display:flex; align-items:center; justify-content:center; }
-        .locate-btn:hover { border-color:var(--green); color:var(--green); }
+        /* Toggle */
+        .toggle { position:absolute; bottom:1.5rem; left:1rem; z-index:500; background:#111; border:1px solid #333; color:#888; padding:0.5rem 1rem; font-size:0.75rem; cursor:pointer; }
+        .toggle.active { background:#00ff9d; color:#000; border-color:#00ff9d; }
         
-        /* === SIDEBAR === */
-        .sidebar { width:360px; background:var(--card); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
-        @media(max-width:800px) {
-            .sidebar { position:fixed; inset:0; width:100%; transform:translateX(100%); transition:transform 0.3s; z-index:1000; }
-            .sidebar.open { transform:translateX(0); }
+        /* Sidebar */
+        #sidebar { width:350px; background:#111; border-left:1px solid #222; display:flex; flex-direction:column; }
+        @media(max-width:768px) {
+            #sidebar { position:fixed; top:0; right:0; bottom:0; width:100%; transform:translateX(100%); transition:transform 0.3s; z-index:1000; }
+            #sidebar.open { transform:translateX(0); }
         }
-        .sidebar-header { padding:1rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
-        .sidebar-title { font-weight:700; font-size:0.9rem; }
-        .sidebar-close { display:none; background:none; border:none; color:var(--dim); font-size:1.5rem; cursor:pointer; }
-        @media(max-width:800px) { .sidebar-close { display:block; } }
-        .sidebar-content { flex:1; overflow-y:auto; }
-        .sidebar-section { padding:1rem; }
-        .sidebar-section + .sidebar-section { border-top:1px solid var(--border); }
+        .sidebar-header { padding:1rem; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; }
+        .sidebar-title { font-weight:600; }
+        .sidebar-close { display:none; background:none; border:none; color:#888; font-size:1.5rem; cursor:pointer; }
+        @media(max-width:768px) { .sidebar-close { display:block; } }
+        .sidebar-body { flex:1; overflow-y:auto; padding:1rem; }
         
-        /* === COMPONENTS === */
-        .card { background:var(--bg); border:1px solid var(--border); border-radius:0.5rem; padding:0.75rem; margin-bottom:0.5rem; cursor:pointer; transition:all 0.15s; }
-        .card:hover { border-color:var(--green); }
-        .card-title { font-weight:600; font-size:0.85rem; margin-bottom:0.25rem; }
-        .card-meta { font-size:0.7rem; color:var(--dim); }
-        .card-badge { display:inline-block; font-size:0.6rem; padding:0.15rem 0.4rem; border-radius:1rem; margin-left:0.5rem; }
-        .badge-recruiting { background:rgba(255,234,0,0.15); color:var(--yellow); }
-        .badge-active { background:rgba(0,255,157,0.15); color:var(--green); }
-        .badge-live { background:rgba(0,212,255,0.15); color:var(--blue); }
+        /* Cards */
+        .card { background:#0a0a0f; border:1px solid #222; padding:0.75rem; margin-bottom:0.5rem; cursor:pointer; }
+        .card:hover { border-color:#00ff9d; }
+        .card-title { font-weight:600; font-size:0.9rem; margin-bottom:0.25rem; }
+        .card-meta { font-size:0.75rem; color:#666; }
+        .badge { font-size:0.6rem; padding:0.2rem 0.5rem; margin-left:0.5rem; }
+        .badge-yellow { background:rgba(255,234,0,0.2); color:#ffea00; }
+        .badge-green { background:rgba(0,255,157,0.2); color:#00ff9d; }
+        .badge-pink { background:rgba(255,0,128,0.2); color:#ff0080; }
         
-        .progress { height:4px; background:var(--border); border-radius:2px; overflow:hidden; margin-top:0.5rem; }
-        .progress-fill { height:100%; background:linear-gradient(90deg,var(--green),var(--blue)); transition:width 0.3s; }
+        /* Progress */
+        .progress { height:4px; background:#222; margin-top:0.5rem; }
+        .progress-fill { height:100%; background:linear-gradient(90deg,#00ff9d,#00d4ff); }
         
-        .participant { display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0; font-size:0.8rem; }
-        .participant + .participant { border-top:1px solid var(--border); }
-        .participant-creator { color:var(--green); }
-        
-        .empty { text-align:center; padding:2rem 1rem; color:var(--muted); }
-        .empty-icon { font-size:2.5rem; margin-bottom:0.5rem; }
-        .empty-text { font-size:0.85rem; line-height:1.5; }
-        
-        /* === FORMS === */
+        /* Forms */
         .form-group { margin-bottom:1rem; }
-        .form-label { display:block; font-size:0.75rem; color:var(--dim); margin-bottom:0.3rem; }
-        .form-input { width:100%; padding:0.75rem; background:var(--bg); border:1px solid var(--border); border-radius:0.5rem; color:var(--text); font-size:0.9rem; }
-        .form-input:focus { outline:none; border-color:var(--green); }
-        .form-input::placeholder { color:var(--muted); }
-        textarea.form-input { min-height:80px; resize:vertical; font-family:inherit; }
+        .form-label { display:block; font-size:0.75rem; color:#888; margin-bottom:0.3rem; }
+        .form-input { width:100%; padding:0.75rem; background:#0a0a0f; border:1px solid #222; color:#fff; font-size:0.9rem; }
+        .form-input:focus { outline:none; border-color:#00ff9d; }
         select.form-input { cursor:pointer; }
+        textarea.form-input { min-height:80px; resize:vertical; font-family:inherit; }
         
-        .btn { padding:0.75rem 1.5rem; border:none; border-radius:0.5rem; font-size:0.85rem; font-weight:600; cursor:pointer; transition:all 0.15s; }
-        .btn-primary { background:var(--green); color:#000; }
-        .btn-primary:hover { box-shadow:0 0 20px rgba(0,255,157,0.4); }
-        .btn-secondary { background:transparent; border:1px solid var(--border); color:var(--text); }
-        .btn-secondary:hover { border-color:var(--green); color:var(--green); }
-        .btn-danger { background:transparent; border:1px solid var(--pink); color:var(--pink); }
-        .btn-block { width:100%; }
-        .btn-group { display:flex; gap:0.5rem; }
+        /* Buttons */
+        .btn { padding:0.75rem 1.5rem; border:none; font-size:0.85rem; font-weight:600; cursor:pointer; width:100%; }
+        .btn-primary { background:#00ff9d; color:#000; }
+        .btn-primary:hover { box-shadow:0 0 15px rgba(0,255,157,0.4); }
+        .btn-secondary { background:transparent; border:1px solid #333; color:#fff; }
+        .btn-back { background:transparent; border:1px solid #333; color:#888; margin-bottom:1rem; }
+        .btn-group { display:flex; gap:0.5rem; margin-top:1rem; }
+        .btn-group .btn { flex:1; }
         
-        /* === TOAST === */
-        .toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(100px); background:var(--card); border:1px solid var(--green); padding:0.75rem 1.5rem; border-radius:2rem; font-size:0.85rem; z-index:9999; transition:transform 0.3s; box-shadow:0 4px 20px rgba(0,0,0,0.3); }
-        .toast.show { transform:translateX(-50%) translateY(0); }
+        /* Detail */
+        .detail-title { font-size:1.2rem; font-weight:600; margin-bottom:0.5rem; }
+        .detail-meta { font-size:0.8rem; color:#888; margin-bottom:1rem; }
+        .detail-desc { font-size:0.85rem; color:#aaa; line-height:1.5; margin-bottom:1rem; }
+        .section-title { font-size:0.75rem; color:#00d4ff; font-weight:600; margin:1.5rem 0 0.75rem; }
+        .participant { display:flex; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid #222; font-size:0.85rem; }
+        .participant:last-child { border:none; }
         
-        /* === MODAL === */
-        .modal { position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:2000; display:flex; align-items:center; justify-content:center; padding:1rem; opacity:0; pointer-events:none; transition:opacity 0.2s; }
-        .modal.open { opacity:1; pointer-events:auto; }
-        .modal-box { background:var(--card); border-radius:1rem; width:100%; max-width:400px; max-height:85vh; overflow-y:auto; }
-        .modal-header { padding:1rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
-        .modal-title { font-weight:700; }
-        .modal-close { background:none; border:none; color:var(--dim); font-size:1.5rem; cursor:pointer; line-height:1; }
-        .modal-body { padding:1rem; }
-        .modal-footer { padding:1rem; border-top:1px solid var(--border); }
+        /* Toast */
+        #toast { position:fixed; bottom:-60px; left:50%; transform:translateX(-50%); background:#111; border:1px solid #00ff9d; padding:0.75rem 1.5rem; z-index:9999; transition:bottom 0.3s; font-size:0.85rem; }
+        #toast.show { bottom:2rem; }
         
-        /* === UTILS === */
-        .text-green { color:var(--green); }
-        .text-dim { color:var(--dim); }
-        .text-center { text-align:center; }
-        .mt-1 { margin-top:0.5rem; }
-        .mt-2 { margin-top:1rem; }
-        
-        /* === SCROLLBAR === */
-        ::-webkit-scrollbar { width:6px; }
-        ::-webkit-scrollbar-track { background:var(--bg); }
-        ::-webkit-scrollbar-thumb { background:var(--muted); border-radius:3px; }
+        /* Empty */
+        .empty { text-align:center; padding:3rem 1rem; color:#444; }
+        .empty-icon { font-size:3rem; margin-bottom:1rem; }
     </style>
 </head>
 <body>
     <!-- ONBOARDING -->
-    <div class="onboarding" id="onboarding">
-        <div class="onboarding-logo">⚡</div>
-        <h1 class="onboarding-title">Cellules Citoyennes</h1>
-        <p class="onboarding-subtitle">Créez des groupes de veille sur votre territoire et organisez des ateliers d'intelligence collective.</p>
-        <div class="onboarding-steps">
-            <div class="onboarding-step">
-                <div class="onboarding-step-icon">📍</div>
-                <div class="onboarding-step-text">Choisissez un lieu</div>
-            </div>
-            <div class="onboarding-step">
-                <div class="onboarding-step-icon">👥</div>
-                <div class="onboarding-step-text">Réunissez 5 à 9 personnes</div>
-            </div>
-            <div class="onboarding-step">
-                <div class="onboarding-step-icon">💬</div>
-                <div class="onboarding-step-text">Lancez un atelier</div>
-            </div>
+    <div id="onboarding">
+        <div style="font-size:4rem;">⚡</div>
+        <h1>Cellules Citoyennes</h1>
+        <p>Créez des groupes de veille citoyenne et lancez des ateliers d'intelligence collective.</p>
+        <div class="steps">
+            <div class="step"><div class="step-icon">📍</div><div class="step-text">Choisissez un lieu</div></div>
+            <div class="step"><div class="step-icon">👥</div><div class="step-text">5 à 9 personnes</div></div>
+            <div class="step"><div class="step-icon">💬</div><div class="step-text">Lancez un atelier</div></div>
         </div>
-        <button class="onboarding-cta" onclick="startApp()">Commencer</button>
-        <button class="onboarding-skip" onclick="startApp()">J'ai déjà un pseudo</button>
+        <input type="text" id="pseudo-input" placeholder="Votre pseudo">
+        <div class="error" id="pseudo-error">Entrez un pseudo</div>
+        <button onclick="enterApp()">Commencer</button>
     </div>
 
     <!-- APP -->
-    <div class="app" id="app" style="display:none;">
+    <div id="app">
         <header>
-            <div class="logo">
-                <span class="logo-icon">⚡</span>
-                <span class="logo-text">Cellules</span>
+            <div class="logo">⚡ Cellules</div>
+            <div class="stats">
+                <div><span class="stat-val" id="stat-c">0</span> <span class="stat-lbl">cellules</span></div>
+                <div><span class="stat-val" id="stat-p">0</span> <span class="stat-lbl">citoyens</span></div>
             </div>
-            <div class="header-stats">
-                <div class="header-stat">
-                    <div class="header-stat-val" id="stat-cellules">0</div>
-                    <div class="header-stat-lbl">Cellules</div>
-                </div>
-                <div class="header-stat">
-                    <div class="header-stat-val" id="stat-citoyens">0</div>
-                    <div class="header-stat-lbl">Citoyens</div>
-                </div>
-            </div>
+            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
         </header>
-        
         <main>
-            <div class="map-container">
+            <div id="map-wrap">
                 <div id="map"></div>
-                
-                <div class="map-locate">
-                    <button class="locate-btn" onclick="locateMe()" title="Ma position">📍</button>
-                </div>
-                
-                <div class="map-toggles">
-                    <button class="toggle-btn active" id="btn-links" onclick="toggleLinks()">🔗 Réseau</button>
-                </div>
-                
-                <div class="map-fab">
-                    <button class="fab" onclick="openCreate()" title="Créer une cellule">+</button>
-                </div>
+                <button class="locate" onclick="locate()">📍</button>
+                <button class="toggle active" id="toggle-links" onclick="toggleLinks()">🔗 Réseau</button>
+                <button class="fab" onclick="openCreate()">+</button>
             </div>
-            
-            <aside class="sidebar" id="sidebar">
+            <aside id="sidebar">
                 <div class="sidebar-header">
-                    <div class="sidebar-title" id="sidebar-title">Cellules proches</div>
-                    <button class="sidebar-close" onclick="closeSidebar()">×</button>
+                    <span class="sidebar-title" id="sidebar-title">Cellules</span>
+                    <button class="sidebar-close" onclick="toggleSidebar()">×</button>
                 </div>
-                <div class="sidebar-content" id="sidebar-content">
-                    <!-- Dynamic -->
-                </div>
+                <div class="sidebar-body" id="sidebar-body"></div>
             </aside>
         </main>
     </div>
-    
-    <!-- MODAL -->
-    <div class="modal" id="modal">
-        <div class="modal-box">
-            <div class="modal-header">
-                <div class="modal-title" id="modal-title"></div>
-                <button class="modal-close" onclick="closeModal()">×</button>
-            </div>
-            <div class="modal-body" id="modal-body"></div>
-        </div>
-    </div>
-    
+
     <!-- TOAST -->
-    <div class="toast" id="toast"></div>
+    <div id="toast"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-    const KEY = 'cellules_prod_v1';
+    // === CONFIG ===
+    const KEY = 'cellules_v1';
     const THEMES = {
-        mobilite: { emoji: '🚲', label: 'Mobilité' },
-        environnement: { emoji: '🌱', label: 'Environnement' },
-        social: { emoji: '🤝', label: 'Social' },
-        numerique: { emoji: '💻', label: 'Numérique' },
-        culture: { emoji: '🎭', label: 'Culture' },
-        economie: { emoji: '💼', label: 'Économie' },
-        democratie: { emoji: '🗳️', label: 'Démocratie' },
-        education: { emoji: '📚', label: 'Éducation' },
-        sante: { emoji: '🏥', label: 'Santé' },
-        autre: { emoji: '📋', label: 'Autre' }
+        mobilite: '🚲 Mobilité',
+        environnement: '🌱 Environnement',
+        social: '🤝 Social',
+        numerique: '💻 Numérique',
+        culture: '🎭 Culture',
+        economie: '💼 Économie',
+        democratie: '🗳️ Démocratie',
+        education: '📚 Éducation',
+        sante: '🏥 Santé',
+        autre: '📋 Autre'
     };
     
-    // Antennes seed dans les grandes villes FWB (points de départ)
-    const SEED_ANTENNES = [
-        { id: 'seed_bxl', lat: 50.8466, lon: 4.3528, title: 'Antenne Bruxelles-Centre', theme: 'democratie' },
-        { id: 'seed_namur', lat: 50.4669, lon: 4.8675, title: 'Antenne Namur', theme: 'democratie' },
-        { id: 'seed_liege', lat: 50.6326, lon: 5.5797, title: 'Antenne Liège', theme: 'democratie' },
-        { id: 'seed_charleroi', lat: 50.4108, lon: 4.4446, title: 'Antenne Charleroi', theme: 'social' },
-        { id: 'seed_mons', lat: 50.4542, lon: 3.9523, title: 'Antenne Mons', theme: 'culture' }
+    // Antennes seed
+    const SEEDS = [
+        { id:'seed1', lat:50.8466, lon:4.3528, title:'Antenne Bruxelles', theme:'democratie', desc:'Point de ralliement Bruxelles-Centre' },
+        { id:'seed2', lat:50.4669, lon:4.8675, title:'Antenne Namur', theme:'democratie', desc:'Point de ralliement Namur' },
+        { id:'seed3', lat:50.6326, lon:5.5797, title:'Antenne Liège', theme:'social', desc:'Point de ralliement Liège' },
+        { id:'seed4', lat:50.4108, lon:4.4446, title:'Antenne Charleroi', theme:'social', desc:'Point de ralliement Charleroi' },
+        { id:'seed5', lat:50.4542, lon:3.9523, title:'Antenne Mons', theme:'culture', desc:'Point de ralliement Mons' }
     ];
     
-    let S = {
-        map: null,
-        data: null,
-        user: null,
-        userPos: null,
-        selected: null,
-        showLinks: true,
-        layers: {}
-    };
+    // === STATE ===
+    let map, layerCellules, layerLinks;
+    let data = null;
+    let user = null;
+    let userPos = null;
+    let clickedPos = null;
+    let showLinks = true;
     
     // === INIT ===
-    function init() {
-        S.data = load();
-        S.user = localStorage.getItem('cellules_user');
+    function boot() {
+        user = localStorage.getItem('cellules_user');
+        data = loadData();
         
-        if (S.user) {
-            document.getElementById('onboarding').classList.add('hidden');
-            document.getElementById('app').style.display = 'flex';
-            initMap();
+        if (user) {
+            startApp();
         }
     }
     
-    function load() {
+    function loadData() {
         const saved = localStorage.getItem(KEY);
         if (saved) return JSON.parse(saved);
         
-        // Init avec antennes seed
-        const data = {
-            cellules: SEED_ANTENNES.map(a => ({
-                ...a,
-                desc: 'Point de ralliement pour organiser des cellules dans la région.',
-                radius: 10,
+        // Init seeds
+        const d = {
+            cellules: SEEDS.map(s => ({
+                ...s,
+                seed: true,
                 creator: 'Réseau',
                 participants: [{ name: 'Réseau', role: 'seed' }],
                 min: 5, max: 15,
-                createdAt: new Date().toISOString(),
-                seed: true
+                radius: 10
             })),
             ateliers: []
         };
+        localStorage.setItem(KEY, JSON.stringify(d));
+        return d;
+    }
+    
+    function saveData() {
         localStorage.setItem(KEY, JSON.stringify(data));
-        return data;
     }
     
-    function save() {
-        localStorage.setItem(KEY, JSON.stringify(S.data));
-    }
-    
-    // === START APP ===
-    function startApp() {
-        const existingUser = localStorage.getItem('cellules_user');
+    // === ENTER APP ===
+    function enterApp() {
+        const input = document.getElementById('pseudo-input');
+        const error = document.getElementById('pseudo-error');
+        const pseudo = input.value.trim();
         
-        if (!existingUser) {
-            // Demander pseudo
-            showModal('Bienvenue !', `
-                <p class="text-dim" style="margin-bottom:1rem;">Comment voulez-vous être appelé·e ?</p>
-                <div class="form-group">
-                    <input class="form-input" id="input-pseudo" placeholder="Votre pseudo" autofocus>
-                </div>
-                <button class="btn btn-primary btn-block" onclick="saveUser()">Continuer</button>
-            `);
-        } else {
-            S.user = existingUser;
-            document.getElementById('onboarding').classList.add('hidden');
-            document.getElementById('app').style.display = 'flex';
-            setTimeout(initMap, 100);
+        if (!pseudo) {
+            error.style.display = 'block';
+            input.focus();
+            return;
         }
+        
+        user = pseudo;
+        localStorage.setItem('cellules_user', pseudo);
+        startApp();
     }
     
-    function saveUser() {
-        const pseudo = document.getElementById('input-pseudo').value.trim();
-        if (!pseudo) { toast('Entrez un pseudo'); return; }
-        
-        S.user = pseudo;
-        localStorage.setItem('cellules_user', pseudo);
-        
-        closeModal();
+    function startApp() {
         document.getElementById('onboarding').classList.add('hidden');
-        document.getElementById('app').style.display = 'flex';
-        setTimeout(initMap, 100);
+        document.getElementById('app').classList.add('active');
         
-        toast('Bienvenue ' + pseudo + ' !');
+        // Wait for Leaflet
+        if (typeof L === 'undefined') {
+            setTimeout(startApp, 100);
+            return;
+        }
+        
+        initMap();
     }
     
     // === MAP ===
     function initMap() {
-        S.map = L.map('map', { 
-            center: [50.5, 4.5], 
-            zoom: 8, 
-            zoomControl: false,
-            preferCanvas: true
-        });
+        map = L.map('map', { center: [50.5, 4.5], zoom: 8, zoomControl: false });
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(map);
         
-        L.control.zoom({ position: 'bottomright' }).addTo(S.map);
+        layerCellules = L.layerGroup().addTo(map);
+        layerLinks = L.layerGroup().addTo(map);
         
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 18,
-            attribution: '© OSM'
-        }).addTo(S.map);
-        
-        S.layers.cellules = L.layerGroup().addTo(S.map);
-        S.layers.links = L.layerGroup().addTo(S.map);
-        
-        // Clic sur carte = créer cellule
-        S.map.on('click', e => {
-            S.selected = { lat: e.latlng.lat, lon: e.latlng.lng };
+        map.on('click', e => {
+            clickedPos = { lat: e.latlng.lat, lon: e.latlng.lng };
             openCreate();
         });
         
-        renderMap();
+        render();
         renderList();
         updateStats();
-        
-        // Auto-locate
-        locateMe();
+        locate();
     }
     
-    function renderMap() {
-        S.layers.cellules.clearLayers();
-        S.layers.links.clearLayers();
+    function render() {
+        layerCellules.clearLayers();
+        layerLinks.clearLayers();
         
-        // Cellules
-        S.data.cellules.forEach(c => {
-            const count = c.participants.length;
-            const ready = count >= (c.min || 5);
-            const hasAtelier = S.data.ateliers.some(a => a.celluleId === c.id && a.status !== 'completed');
-            
+        // Draw cellules
+        data.cellules.forEach(c => {
+            const n = c.participants.length;
+            const ready = n >= (c.min || 5);
             let color = '#ffea00';
             if (ready) color = '#00ff9d';
-            if (hasAtelier) color = '#00d4ff';
             if (c.seed) color = '#ff0080';
             
-            const size = Math.min(20, 8 + count * 2);
-            
             const marker = L.circleMarker([c.lat, c.lon], {
-                radius: size,
-                color: color,
-                fillColor: color,
-                fillOpacity: 0.8,
-                weight: 2
+                radius: Math.min(18, 7 + n * 1.5),
+                color, fillColor: color, fillOpacity: 0.8, weight: 2
             });
-            
-            marker.on('click', e => {
-                L.DomEvent.stopPropagation(e);
-                showDetail(c.id);
-            });
-            
-            marker.bindTooltip(`<b>${c.title}</b><br>${count} participant${count > 1 ? 's' : ''}`, {
-                direction: 'top',
-                offset: [0, -size]
-            });
-            
-            marker.addTo(S.layers.cellules);
+            marker.on('click', e => { L.DomEvent.stopPropagation(e); showDetail(c.id); });
+            marker.bindTooltip(`<b>${c.title}</b><br>${n} participant${n>1?'s':''}`);
+            marker.addTo(layerCellules);
         });
         
-        // Liens entre cellules actives
-        if (S.showLinks) {
-            const active = S.data.cellules.filter(c => c.participants.length >= 5);
+        // Draw links
+        if (showLinks) {
+            const active = data.cellules.filter(c => c.participants.length >= 5);
             active.forEach((a, i) => {
-                active.slice(i + 1).forEach(b => {
+                active.slice(i+1).forEach(b => {
                     const d = dist(a.lat, a.lon, b.lat, b.lon);
-                    if (d <= 30) {
+                    if (d < 30) {
                         L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
                             color: '#00d4ff',
-                            weight: Math.max(1, 2 - d / 20),
-                            opacity: Math.max(0.1, 0.4 - d / 80),
-                            dashArray: '8,12'
-                        }).addTo(S.layers.links);
+                            weight: Math.max(1, 2 - d/15),
+                            opacity: Math.max(0.1, 0.4 - d/75),
+                            dashArray: '6,10'
+                        }).addTo(layerLinks);
                     }
                 });
             });
         }
     }
     
-    function locateMe() {
+    function locate() {
         if (!navigator.geolocation) return;
-        
         navigator.geolocation.getCurrentPosition(
-            pos => {
-                S.userPos = { lat: pos.coords.latitude, lon: pos.coords.longitude };
-                S.map.setView([S.userPos.lat, S.userPos.lon], 11);
+            p => {
+                userPos = { lat: p.coords.latitude, lon: p.coords.longitude };
+                map.setView([userPos.lat, userPos.lon], 11);
                 renderList();
             },
-            () => {
-                // Fallback: centre de la Belgique
-                S.map.setView([50.5, 4.5], 8);
-            }
+            () => map.setView([50.5, 4.5], 8)
         );
     }
     
     function toggleLinks() {
-        S.showLinks = !S.showLinks;
-        document.getElementById('btn-links').classList.toggle('active', S.showLinks);
-        renderMap();
+        showLinks = !showLinks;
+        document.getElementById('toggle-links').classList.toggle('active', showLinks);
+        render();
     }
     
     // === SIDEBAR ===
     function renderList() {
-        let cellules = [...S.data.cellules];
+        document.getElementById('sidebar-title').textContent = 'Cellules';
         
-        // Trier par distance si on a la position
-        if (S.userPos) {
-            cellules = cellules.map(c => ({
-                ...c,
-                distance: dist(S.userPos.lat, S.userPos.lon, c.lat, c.lon)
-            })).sort((a, b) => a.distance - b.distance);
+        let list = [...data.cellules];
+        if (userPos) {
+            list = list.map(c => ({ ...c, dist: dist(userPos.lat, userPos.lon, c.lat, c.lon) }))
+                       .sort((a,b) => a.dist - b.dist);
         }
         
-        if (cellules.length === 0) {
-            document.getElementById('sidebar-content').innerHTML = `
-                <div class="empty">
-                    <div class="empty-icon">🗺️</div>
-                    <div class="empty-text">Aucune cellule pour l'instant.<br>Soyez le premier à en créer une !</div>
-                </div>
-            `;
-            return;
-        }
-        
-        let html = '<div class="sidebar-section">';
-        
-        cellules.forEach(c => {
-            const count = c.participants.length;
-            const ready = count >= (c.min || 5);
-            const pct = (count / (c.max || 9)) * 100;
-            
-            let badge = '';
-            if (c.seed) badge = '<span class="card-badge" style="background:rgba(255,0,128,0.15);color:#ff0080;">Antenne</span>';
-            else if (ready) badge = '<span class="card-badge badge-active">Active</span>';
-            else badge = '<span class="card-badge badge-recruiting">Recrutement</span>';
-            
-            const distText = c.distance ? `${c.distance.toFixed(1)} km` : '';
+        let html = '';
+        list.forEach(c => {
+            const n = c.participants.length;
+            const pct = (n / (c.max || 9)) * 100;
+            const ready = n >= (c.min || 5);
+            let badge = c.seed ? '<span class="badge badge-pink">Antenne</span>' :
+                        ready ? '<span class="badge badge-green">Active</span>' :
+                        '<span class="badge badge-yellow">Recrute</span>';
+            const distTxt = c.dist ? ` · ${c.dist.toFixed(1)} km` : '';
             
             html += `
                 <div class="card" onclick="showDetail('${c.id}')">
-                    <div class="card-title">${THEMES[c.theme]?.emoji || '📋'} ${c.title} ${badge}</div>
-                    <div class="card-meta">${count}/${c.max || 9} participants ${distText ? '· ' + distText : ''}</div>
+                    <div class="card-title">${c.title} ${badge}</div>
+                    <div class="card-meta">${n}/${c.max||9} participants${distTxt}</div>
                     <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
                 </div>
             `;
         });
         
-        html += '</div>';
-        
-        // Section sync
         html += `
-            <div class="sidebar-section">
-                <div class="btn-group">
-                    <button class="btn btn-secondary" onclick="exportData()" style="flex:1;">📤 Export</button>
-                    <button class="btn btn-secondary" onclick="importData()" style="flex:1;">📥 Import</button>
-                </div>
+            <div class="btn-group" style="margin-top:1.5rem;">
+                <button class="btn btn-secondary" onclick="exportData()">📤 Export</button>
+                <button class="btn btn-secondary" onclick="importData()">📥 Import</button>
             </div>
         `;
         
-        document.getElementById('sidebar-content').innerHTML = html;
-        document.getElementById('sidebar-title').textContent = 'Cellules proches';
+        document.getElementById('sidebar-body').innerHTML = html;
     }
     
     function showDetail(id) {
-        const c = S.data.cellules.find(x => x.id === id);
+        const c = data.cellules.find(x => x.id === id);
         if (!c) return;
         
-        S.map.setView([c.lat, c.lon], 13);
-        openSidebar();
+        map.setView([c.lat, c.lon], 12);
+        document.getElementById('sidebar').classList.add('open');
+        document.getElementById('sidebar-title').textContent = 'Détail';
         
-        const count = c.participants.length;
-        const ready = count >= (c.min || 5);
-        const pct = (count / (c.max || 9)) * 100;
-        const atelier = S.data.ateliers.find(a => a.celluleId === c.id);
-        const isParticipant = c.participants.some(p => p.name === S.user);
+        const n = c.participants.length;
+        const ready = n >= (c.min || 5);
+        const pct = (n / (c.max || 9)) * 100;
+        const isMember = c.participants.some(p => p.name === user);
+        const atelier = data.ateliers.find(a => a.celluleId === c.id);
         
         let html = `
-            <div class="sidebar-section">
-                <button class="btn btn-secondary" onclick="renderList()" style="margin-bottom:1rem;">← Retour</button>
-                
-                <h2 style="font-size:1.1rem;margin-bottom:0.5rem;">${THEMES[c.theme]?.emoji || '📋'} ${c.title}</h2>
-                <p class="text-dim" style="font-size:0.8rem;margin-bottom:1rem;">${c.desc || ''}</p>
-                
-                <div style="font-size:0.75rem;color:var(--muted);margin-bottom:1rem;">
-                    Créé par <span class="text-green">${c.creator}</span> ${c.seed ? '(Antenne officielle)' : ''}
-                </div>
-            </div>
+            <button class="btn btn-back" onclick="renderList()">← Retour</button>
+            <div class="detail-title">${c.title}</div>
+            <div class="detail-meta">${THEMES[c.theme] || c.theme} · Créé par ${c.creator}</div>
+            <div class="detail-desc">${c.desc || ''}</div>
             
-            <div class="sidebar-section">
-                <div style="font-weight:600;margin-bottom:0.5rem;">Participants (${count}/${c.max || 9})</div>
-                <div class="progress" style="margin-bottom:1rem;"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <div class="section-title">Participants (${n}/${c.max||9})</div>
+            <div class="progress" style="margin-bottom:1rem;"><div class="progress-fill" style="width:${pct}%"></div></div>
         `;
         
         c.participants.forEach((p, i) => {
+            const isMe = p.name === user;
             const isCreator = i === 0 || p.role === 'seed';
-            const isMe = p.name === S.user;
-            html += `
-                <div class="participant">
-                    <span class="${isCreator ? 'participant-creator' : ''}">${isCreator ? '👑 ' : ''}${p.name}${isMe ? ' (vous)' : ''}</span>
-                </div>
-            `;
+            html += `<div class="participant"><span style="color:${isCreator?'#00ff9d':'#fff'}">${isCreator?'👑 ':''}${p.name}${isMe?' (vous)':''}</span></div>`;
         });
         
-        if (!isParticipant && count < (c.max || 9)) {
-            html += `<button class="btn btn-primary btn-block mt-2" onclick="joinCellule('${c.id}')">Rejoindre cette cellule</button>`;
-        } else if (isParticipant && !c.seed) {
-            html += `<button class="btn btn-danger btn-block mt-2" onclick="leaveCellule('${c.id}')">Quitter</button>`;
+        if (!isMember && n < (c.max || 9)) {
+            html += `<button class="btn btn-primary" style="margin-top:1rem;" onclick="join('${c.id}')">Rejoindre</button>`;
+        } else if (isMember && !c.seed && c.participants.findIndex(p=>p.name===user) > 0) {
+            html += `<button class="btn btn-secondary" style="margin-top:1rem;" onclick="leave('${c.id}')">Quitter</button>`;
         }
         
-        html += '</div>';
-        
         // Atelier
-        if (ready || atelier) {
-            html += '<div class="sidebar-section">';
-            
+        if (ready) {
+            html += `<div class="section-title">Atelier</div>`;
             if (atelier) {
-                html += `
-                    <div style="font-weight:600;margin-bottom:0.5rem;">📋 Atelier en cours</div>
-                    <div class="text-dim" style="font-size:0.8rem;">
-                        <strong>${atelier.title}</strong><br>
-                        Phase: ${atelier.status === 'live' ? '🔴 Live (48h)' : 'Async (14 jours)'}<br>
-                        ${atelier.contributions?.length || 0} contributions
-                    </div>
-                `;
-            } else if (isParticipant) {
-                html += `
-                    <div style="font-weight:600;margin-bottom:0.5rem;">✅ Quorum atteint !</div>
-                    <p class="text-dim" style="font-size:0.8rem;margin-bottom:1rem;">Vous pouvez lancer un atelier de 14 jours.</p>
-                    <button class="btn btn-primary btn-block" onclick="startAtelier('${c.id}')">🚀 Lancer un atelier</button>
-                `;
+                html += `<div style="color:#888;font-size:0.85rem;">📋 <b>${atelier.title}</b><br>Statut: ${atelier.status}</div>`;
+            } else if (isMember) {
+                html += `<div style="color:#888;font-size:0.85rem;margin-bottom:0.5rem;">✅ Quorum atteint !</div>`;
+                html += `<button class="btn btn-primary" onclick="launchAtelier('${c.id}')">🚀 Lancer un atelier</button>`;
             } else {
-                html += `
-                    <div style="font-weight:600;margin-bottom:0.5rem;">✅ Cellule active</div>
-                    <p class="text-dim" style="font-size:0.8rem;">Cette cellule peut organiser des ateliers.</p>
-                `;
+                html += `<div style="color:#888;font-size:0.85rem;">Cellule active</div>`;
             }
-            
-            html += '</div>';
         }
         
         // Matches
-        const matches = S.data.cellules
+        const matches = data.cellules
             .filter(x => x.id !== c.id && x.participants.length >= 5)
             .map(x => ({ ...x, d: dist(c.lat, c.lon, x.lat, x.lon) }))
-            .filter(x => x.d <= 30)
-            .sort((a, b) => a.d - b.d)
+            .filter(x => x.d < 30)
+            .sort((a,b) => a.d - b.d)
             .slice(0, 3);
         
         if (matches.length) {
-            html += '<div class="sidebar-section"><div style="font-weight:600;margin-bottom:0.5rem;">🔗 Cellules proches</div>';
+            html += `<div class="section-title">Cellules proches</div>`;
             matches.forEach(m => {
-                html += `
-                    <div class="card" onclick="showDetail('${m.id}')">
-                        <div class="card-title">${m.title}</div>
-                        <div class="card-meta">${m.d.toFixed(1)} km · ${m.participants.length} participants</div>
-                    </div>
-                `;
+                html += `<div class="card" onclick="showDetail('${m.id}')"><div class="card-title">${m.title}</div><div class="card-meta">${m.d.toFixed(1)} km</div></div>`;
             });
-            html += '</div>';
         }
         
-        document.getElementById('sidebar-content').innerHTML = html;
-        document.getElementById('sidebar-title').textContent = 'Détail';
+        document.getElementById('sidebar-body').innerHTML = html;
     }
     
-    // === ACTIONS ===
+    // === CREATE ===
     function openCreate() {
-        const loc = S.selected || S.userPos || { lat: 50.5, lon: 4.5 };
+        const pos = clickedPos || userPos || { lat: 50.5, lon: 4.5 };
         
-        showModal('Créer une cellule', `
+        document.getElementById('sidebar').classList.add('open');
+        document.getElementById('sidebar-title').textContent = 'Nouvelle cellule';
+        
+        let options = Object.entries(THEMES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
+        
+        document.getElementById('sidebar-body').innerHTML = `
+            <button class="btn btn-back" onclick="renderList()">← Annuler</button>
+            
             <div class="form-group">
                 <label class="form-label">Titre</label>
-                <input class="form-input" id="c-title" placeholder="Ex: Veille mobilité Ixelles">
+                <input class="form-input" id="f-title" placeholder="Ex: Vélo-école Ixelles">
             </div>
             <div class="form-group">
                 <label class="form-label">Thématique</label>
-                <select class="form-input" id="c-theme">
-                    <option value="">Choisir...</option>
-                    ${Object.entries(THEMES).map(([k, v]) => `<option value="${k}">${v.emoji} ${v.label}</option>`).join('')}
-                </select>
+                <select class="form-input" id="f-theme"><option value="">Choisir...</option>${options}</select>
             </div>
             <div class="form-group">
-                <label class="form-label">Description (optionnel)</label>
-                <textarea class="form-input" id="c-desc" placeholder="Décrivez l'objectif..."></textarea>
+                <label class="form-label">Description</label>
+                <textarea class="form-input" id="f-desc" placeholder="Décrivez votre cellule..."></textarea>
             </div>
-            <div class="text-dim text-center" style="font-size:0.75rem;margin-bottom:1rem;">
-                📍 Position: ${loc.lat.toFixed(4)}, ${loc.lon.toFixed(4)}
-            </div>
-            <button class="btn btn-primary btn-block" onclick="createCellule(${loc.lat}, ${loc.lon})">Créer</button>
-        `);
+            <div style="color:#888;font-size:0.75rem;margin-bottom:1rem;">📍 ${pos.lat.toFixed(4)}, ${pos.lon.toFixed(4)}</div>
+            <button class="btn btn-primary" onclick="create(${pos.lat},${pos.lon})">Créer la cellule</button>
+        `;
     }
     
-    function createCellule(lat, lon) {
-        const title = document.getElementById('c-title').value.trim();
-        const theme = document.getElementById('c-theme').value;
-        const desc = document.getElementById('c-desc').value.trim();
+    function create(lat, lon) {
+        const title = document.getElementById('f-title').value.trim();
+        const theme = document.getElementById('f-theme').value;
+        const desc = document.getElementById('f-desc').value.trim();
         
-        if (!title || !theme) {
-            toast('Remplissez le titre et la thématique');
-            return;
-        }
+        if (!title || !theme) { toast('Remplissez titre et thématique'); return; }
         
-        const cellule = {
+        const c = {
             id: 'c' + Date.now(),
-            lat, lon,
-            title, theme, desc,
-            radius: 5,
-            creator: S.user,
-            participants: [{ name: S.user, role: 'creator' }],
-            min: 5, max: 9,
-            createdAt: new Date().toISOString()
+            lat, lon, title, theme, desc,
+            creator: user,
+            participants: [{ name: user, role: 'creator' }],
+            min: 5, max: 9, radius: 5
         };
         
-        S.data.cellules.push(cellule);
-        save();
+        data.cellules.push(c);
+        saveData();
+        clickedPos = null;
         
-        closeModal();
-        renderMap();
-        renderList();
+        render();
         updateStats();
-        showDetail(cellule.id);
-        
-        toast('Cellule créée ! Partagez-la pour recruter.');
+        showDetail(c.id);
+        toast('Cellule créée !');
     }
     
-    function joinCellule(id) {
-        const c = S.data.cellules.find(x => x.id === id);
-        if (!c) return;
+    // === ACTIONS ===
+    function join(id) {
+        const c = data.cellules.find(x => x.id === id);
+        if (!c || c.participants.some(p => p.name === user)) return;
+        if (c.participants.length >= (c.max || 9)) { toast('Cellule complète'); return; }
         
-        if (c.participants.some(p => p.name === S.user)) {
-            toast('Vous êtes déjà membre');
-            return;
-        }
-        
-        if (c.participants.length >= (c.max || 9)) {
-            toast('Cellule complète');
-            return;
-        }
-        
-        c.participants.push({ name: S.user });
-        save();
-        
-        renderMap();
+        c.participants.push({ name: user });
+        saveData();
+        render();
         updateStats();
         showDetail(id);
-        
-        if (c.participants.length >= (c.min || 5)) {
-            toast('🎉 Quorum atteint ! Vous pouvez lancer un atelier.');
-        } else {
-            toast('Bienvenue dans la cellule !');
-        }
+        toast(c.participants.length >= (c.min||5) ? '🎉 Quorum atteint !' : 'Bienvenue !');
     }
     
-    function leaveCellule(id) {
-        const c = S.data.cellules.find(x => x.id === id);
+    function leave(id) {
+        const c = data.cellules.find(x => x.id === id);
         if (!c) return;
-        
-        const idx = c.participants.findIndex(p => p.name === S.user);
-        if (idx === -1) return;
-        
-        if (c.participants[idx].role === 'creator') {
-            toast('Le créateur ne peut pas quitter');
-            return;
-        }
+        const idx = c.participants.findIndex(p => p.name === user);
+        if (idx <= 0) return;
         
         c.participants.splice(idx, 1);
-        save();
-        
-        renderMap();
+        saveData();
+        render();
         updateStats();
         renderList();
-        
-        toast('Vous avez quitté la cellule');
+        toast('Vous avez quitté');
     }
     
-    function startAtelier(celluleId) {
-        const c = S.data.cellules.find(x => x.id === celluleId);
-        if (!c) return;
+    function launchAtelier(celluleId) {
+        const title = prompt('Titre de l\'atelier :', 'Atelier');
+        if (!title) return;
         
-        showModal('Lancer un atelier', `
-            <p class="text-dim" style="margin-bottom:1rem;">L'atelier dure 14 jours en mode asynchrone, puis 48h de débrief live.</p>
-            <div class="form-group">
-                <label class="form-label">Titre de l'atelier</label>
-                <input class="form-input" id="a-title" placeholder="Ex: Plan mobilité 2026" value="Atelier ${c.title}">
-            </div>
-            <button class="btn btn-primary btn-block" onclick="confirmAtelier('${celluleId}')">🚀 Lancer</button>
-        `);
-    }
-    
-    function confirmAtelier(celluleId) {
-        const title = document.getElementById('a-title').value.trim() || 'Atelier';
-        const now = new Date();
-        
-        S.data.ateliers.push({
+        data.ateliers.push({
             id: 'a' + Date.now(),
             celluleId,
             title,
             status: 'async',
-            asyncStart: now.toISOString(),
-            asyncEnd: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-            contributions: []
+            startedAt: new Date().toISOString()
         });
-        
-        save();
-        closeModal();
-        renderMap();
+        saveData();
+        render();
         showDetail(celluleId);
-        
-        toast('🚀 Atelier lancé ! 14 jours de contributions.');
+        toast('🚀 Atelier lancé !');
     }
     
     // === SYNC ===
     function exportData() {
-        const json = JSON.stringify(S.data, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `cellules_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = 'cellules.json';
         a.click();
-        toast('Données exportées');
+        toast('Exporté');
     }
     
     function importData() {
-        showModal('Importer des données', `
-            <p class="text-dim" style="margin-bottom:1rem;">Collez les données JSON d'une autre instance pour les fusionner.</p>
-            <div class="form-group">
-                <textarea class="form-input" id="import-json" placeholder='{"cellules": [...], "ateliers": [...]}' style="min-height:120px;font-size:0.7rem;"></textarea>
-            </div>
-            <button class="btn btn-primary btn-block" onclick="confirmImport()">Fusionner</button>
-        `);
-    }
-    
-    function confirmImport() {
-        try {
-            const data = JSON.parse(document.getElementById('import-json').value);
-            let count = 0;
-            
-            (data.cellules || []).forEach(c => {
-                if (!S.data.cellules.some(x => x.id === c.id)) {
-                    S.data.cellules.push(c);
-                    count++;
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    let n = 0;
+                    (imported.cellules || []).forEach(c => {
+                        if (!data.cellules.some(x => x.id === c.id)) {
+                            data.cellules.push(c);
+                            n++;
+                        }
+                    });
+                    (imported.ateliers || []).forEach(a => {
+                        if (!data.ateliers.some(x => x.id === a.id)) {
+                            data.ateliers.push(a);
+                        }
+                    });
+                    saveData();
+                    render();
+                    renderList();
+                    updateStats();
+                    toast(`${n} cellule(s) importée(s)`);
+                } catch (err) {
+                    toast('Fichier invalide');
                 }
-            });
-            
-            (data.ateliers || []).forEach(a => {
-                if (!S.data.ateliers.some(x => x.id === a.id)) {
-                    S.data.ateliers.push(a);
-                }
-            });
-            
-            save();
-            closeModal();
-            renderMap();
-            renderList();
-            updateStats();
-            
-            toast(`${count} cellule(s) importée(s)`);
-        } catch (e) {
-            toast('Format JSON invalide');
-        }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
     }
     
     // === UTILS ===
     function dist(lat1, lon1, lat2, lon2) {
-        const R = 6371;
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
         const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
     
     function updateStats() {
-        document.getElementById('stat-cellules').textContent = S.data.cellules.length;
-        document.getElementById('stat-citoyens').textContent = S.data.cellules.reduce((s, c) => s + c.participants.length, 0);
+        document.getElementById('stat-c').textContent = data.cellules.length;
+        document.getElementById('stat-p').textContent = data.cellules.reduce((s,c) => s + c.participants.length, 0);
     }
     
-    function openSidebar() { document.getElementById('sidebar').classList.add('open'); }
-    function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); }
-    
-    function showModal(title, body) {
-        document.getElementById('modal-title').textContent = title;
-        document.getElementById('modal-body').innerHTML = body;
-        document.getElementById('modal').classList.add('open');
-    }
-    
-    function closeModal() {
-        document.getElementById('modal').classList.remove('open');
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
     }
     
     function toast(msg) {
@@ -847,17 +613,8 @@
         setTimeout(() => el.classList.remove('show'), 3000);
     }
     
-    // Click outside modal
-    document.getElementById('modal').addEventListener('click', e => {
-        if (e.target.id === 'modal') closeModal();
-    });
-    
-    // Init on load
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    // === BOOT ===
+    boot();
     </script>
 </body>
 </html>
