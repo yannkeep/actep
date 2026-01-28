@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cellules Citoyennes</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap');
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:-apple-system,system-ui,sans-serif; background:#030308; color:#fff; min-height:100vh; overflow:hidden; }
+        
+        #onboarding { position:fixed; inset:0; background:radial-gradient(ellipse at 50% 30%, #0a0a18 0%, #030308 70%); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem; text-align:center; }
+        #onboarding.hidden { display:none; }
+        #onboarding .glow-logo { font-size:5rem; margin-bottom:1rem; animation:logo-pulse 2s ease-in-out infinite; filter:drop-shadow(0 0 30px rgba(0,255,157,0.8)); }
+        @keyframes logo-pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
+        #onboarding h1 { font-family:'Orbitron',sans-serif; font-size:1.8rem; background:linear-gradient(135deg,#00ff9d,#00d4ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:0.5rem; }
+        #onboarding p { color:#555; max-width:320px; line-height:1.6; margin-bottom:2rem; }
+        #onboarding input { width:100%; max-width:280px; padding:1rem; background:rgba(255,255,255,0.03); border:1px solid #1a1a2a; border-radius:0.5rem; color:#fff; font-size:1rem; margin-bottom:1rem; text-align:center; }
+        #onboarding input:focus { outline:none; border-color:#00ff9d; }
+        #onboarding button { background:linear-gradient(135deg,#00ff9d,#00d4ff); color:#000; border:none; padding:1rem 3rem; font-size:1rem; font-weight:700; cursor:pointer; border-radius:2rem; }
+        #onboarding .err { color:#ff3366; font-size:0.8rem; display:none; margin-bottom:1rem; }
+        
+        #app { display:none; height:100vh; flex-direction:column; }
+        #app.active { display:flex; }
+        
+        header { background:rgba(8,8,15,0.95); backdrop-filter:blur(10px); padding:0.75rem 1.25rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(0,255,157,0.08); z-index:100; }
+        .logo { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1rem; color:#00ff9d; display:flex; align-items:center; gap:0.5rem; }
+        .stats { display:flex; gap:1.5rem; }
+        .stat { text-align:center; }
+        .stat-val { font-family:'Orbitron',sans-serif; font-weight:700; font-size:1.1rem; color:#00ff9d; }
+        .stat-lbl { font-size:0.55rem; color:#444; text-transform:uppercase; }
+        .menu-btn { display:none; background:rgba(0,255,157,0.1); border:1px solid rgba(0,255,157,0.2); color:#00ff9d; padding:0.5rem 0.75rem; cursor:pointer; }
+        @media(max-width:800px) { .menu-btn { display:block; } }
+        
+        main { flex:1; display:flex; position:relative; overflow:hidden; }
+        
+        #map-wrap { flex:1; position:relative; }
+        #map { width:100%; height:100%; background:#030308; }
+        .leaflet-tile-pane { filter:saturate(0) brightness(0.2) contrast(1.5); }
+        .leaflet-control-zoom { border:none !important; }
+        .leaflet-control-zoom a { background:rgba(8,8,15,0.9) !important; color:#00ff9d !important; border:1px solid rgba(0,255,157,0.2) !important; }
+        
+        #glow-canvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:350; mix-blend-mode:screen; }
+        
+        .locate-btn { position:absolute; top:1rem; right:1rem; z-index:500; width:44px; height:44px; background:rgba(8,8,15,0.9); border:1px solid rgba(255,255,255,0.08); border-radius:50%; color:#fff; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        .locate-btn:hover { border-color:#00ff9d; color:#00ff9d; }
+        
+        .map-controls { position:absolute; bottom:1.5rem; left:1rem; z-index:500; display:flex; gap:0.5rem; }
+        .map-btn { background:rgba(8,8,15,0.9); border:1px solid rgba(255,255,255,0.08); color:#666; padding:0.6rem 1rem; font-size:0.75rem; cursor:pointer; border-radius:2rem; }
+        .map-btn:hover { border-color:rgba(0,255,157,0.3); color:#00ff9d; }
+        .map-btn.active { background:linear-gradient(135deg,#00ff9d,#00d4ff); color:#000; border:none; font-weight:600; }
+        
+        .fab { position:absolute; bottom:1.5rem; right:1rem; z-index:500; width:60px; height:60px; background:linear-gradient(135deg,#00ff9d,#00d4ff); border:none; border-radius:50%; font-size:2rem; color:#000; cursor:pointer; box-shadow:0 4px 30px rgba(0,255,157,0.5); }
+        .fab:hover { transform:scale(1.1) rotate(90deg); }
+        
+        .legend { position:absolute; top:1rem; left:1rem; z-index:500; background:rgba(8,8,15,0.9); border:1px solid rgba(255,255,255,0.08); padding:0.75rem 1rem; border-radius:0.5rem; font-size:0.65rem; }
+        .legend-title { font-family:'Orbitron',sans-serif; font-size:0.55rem; color:#00d4ff; margin-bottom:0.5rem; }
+        .legend-item { display:flex; align-items:center; gap:0.5rem; color:#555; margin-bottom:0.25rem; }
+        .legend-dot { width:10px; height:10px; border-radius:50%; }
+        
+        #sidebar { width:400px; background:rgba(8,8,15,0.98); border-left:1px solid rgba(0,255,157,0.05); display:flex; flex-direction:column; }
+        @media(max-width:800px) { #sidebar { position:fixed; top:0; right:0; bottom:0; width:100%; transform:translateX(100%); transition:transform 0.3s; z-index:1000; } #sidebar.open { transform:translateX(0); } }
+        .sidebar-header { padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center; }
+        .sidebar-title { font-family:'Orbitron',sans-serif; font-size:0.8rem; color:#00ff9d; }
+        .sidebar-close { display:none; background:none; border:none; color:#555; font-size:1.5rem; cursor:pointer; }
+        @media(max-width:800px) { .sidebar-close { display:block; } }
+        
+        .tabs { display:flex; border-bottom:1px solid rgba(255,255,255,0.05); }
+        .tab { flex:1; padding:0.75rem; text-align:center; font-size:0.7rem; color:#555; cursor:pointer; border-bottom:2px solid transparent; }
+        .tab:hover { color:#888; }
+        .tab.active { color:#00ff9d; border-color:#00ff9d; }
+        
+        .sidebar-body { flex:1; overflow-y:auto; padding:1rem; }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; }
+        
+        .card { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:0.5rem; padding:0.85rem; margin-bottom:0.6rem; cursor:pointer; transition:all 0.3s; }
+        .card:hover { border-color:var(--c, rgba(0,255,157,0.3)); transform:translateX(4px); }
+        .card-header { display:flex; justify-content:space-between; align-items:flex-start; }
+        .card-title { font-weight:600; font-size:0.85rem; margin-bottom:0.3rem; flex:1; }
+        .card-actions { display:flex; gap:0.25rem; }
+        .card-action { background:none; border:none; color:#444; font-size:0.9rem; cursor:pointer; padding:0.2rem; }
+        .card-action:hover { color:#00ff9d; }
+        .card-action.danger:hover { color:#ff3366; }
+        .card-meta { font-size:0.7rem; color:#444; }
+        
+        .badge { font-size:0.5rem; padding:0.2rem 0.5rem; border-radius:1rem; font-weight:600; text-transform:uppercase; margin-left:0.5rem; }
+        .badge-y { background:rgba(255,234,0,0.15); color:#ffea00; }
+        .badge-g { background:rgba(0,255,157,0.15); color:#00ff9d; }
+        .badge-b { background:rgba(0,212,255,0.15); color:#00d4ff; }
+        .badge-p { background:rgba(255,0,128,0.15); color:#ff0080; }
+        
+        .progress { height:3px; background:rgba(255,255,255,0.05); border-radius:2px; margin-top:0.6rem; }
+        .progress-fill { height:100%; border-radius:2px; }
+        
+        .form-group { margin-bottom:1rem; }
+        .form-label { display:block; font-size:0.65rem; color:#555; margin-bottom:0.3rem; text-transform:uppercase; }
+        .form-input { width:100%; padding:0.75rem; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:0.4rem; color:#fff; font-size:0.85rem; }
+        .form-input:focus { outline:none; border-color:rgba(0,255,157,0.4); }
+        textarea.form-input { min-height:80px; resize:vertical; font-family:inherit; }
+        
+        .btn { padding:0.75rem 1.25rem; border:none; font-size:0.8rem; font-weight:600; cursor:pointer; width:100%; border-radius:0.4rem; transition:all 0.3s; }
+        .btn-primary { background:linear-gradient(135deg,#00ff9d,#00d4ff); color:#000; }
+        .btn-secondary { background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); color:#666; }
+        .btn-danger { background:rgba(255,51,102,0.1); border:1px solid rgba(255,51,102,0.3); color:#ff3366; }
+        .btn-back { background:transparent; border:1px solid rgba(255,255,255,0.08); color:#555; margin-bottom:1rem; font-size:0.75rem; }
+        .btn-group { display:flex; gap:0.5rem; margin-top:1rem; }
+        .btn-group .btn { flex:1; }
+        .btn-sm { padding:0.5rem 0.75rem; font-size:0.7rem; }
+        
+        .section-title { font-family:'Orbitron',sans-serif; font-size:0.6rem; color:#00d4ff; margin:1.25rem 0 0.75rem; display:flex; justify-content:space-between; align-items:center; }
+        .participant { display:flex; justify-content:space-between; padding:0.5rem 0; font-size:0.8rem; border-bottom:1px solid rgba(255,255,255,0.03); }
+        
+        .workstation { background:rgba(0,212,255,0.05); border:1px solid rgba(0,212,255,0.2); border-radius:0.5rem; padding:1rem; margin-top:1rem; }
+        .workstation-title { font-family:'Orbitron',sans-serif; font-size:0.9rem; color:#00d4ff; margin-bottom:0.5rem; }
+        .workstation-timer { background:rgba(0,0,0,0.3); padding:0.5rem; border-radius:0.4rem; text-align:center; margin:0.75rem 0; }
+        .timer-val { font-family:'Orbitron',sans-serif; font-size:1.5rem; color:#00d4ff; }
+        .timer-lbl { font-size:0.6rem; color:#555; }
+        
+        .contribution { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:0.4rem; padding:0.75rem; margin-bottom:0.5rem; }
+        .contribution-header { display:flex; justify-content:space-between; margin-bottom:0.4rem; }
+        .contribution-author { font-size:0.75rem; font-weight:600; color:#00ff9d; }
+        .contribution-date { font-size:0.6rem; color:#444; }
+        .contribution-text { font-size:0.8rem; color:#888; line-height:1.5; }
+        .contribution-actions { display:flex; gap:0.5rem; margin-top:0.5rem; }
+        .contribution-action { background:none; border:none; color:#444; font-size:0.7rem; cursor:pointer; }
+        .contribution-action:hover { color:#00ff9d; }
+        .contribution-action.voted { color:#00ff9d; }
+        
+        .sync-stats { display:grid; grid-template-columns:repeat(2,1fr); gap:0.5rem; margin-bottom:1rem; }
+        .sync-stat { background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:0.4rem; padding:0.75rem; text-align:center; }
+        .sync-stat-val { font-family:'Orbitron',sans-serif; font-size:1.2rem; color:#00ff9d; }
+        .sync-stat-lbl { font-size:0.6rem; color:#444; }
+        
+        .modal { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:2000; display:none; align-items:center; justify-content:center; padding:1rem; }
+        .modal.open { display:flex; }
+        .modal-content { background:#0a0a12; border:1px solid rgba(0,255,157,0.1); border-radius:0.5rem; width:100%; max-width:400px; max-height:90vh; overflow-y:auto; }
+        .modal-header { padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center; }
+        .modal-title { font-family:'Orbitron',sans-serif; font-size:0.85rem; color:#00ff9d; }
+        .modal-close { background:none; border:none; color:#555; font-size:1.25rem; cursor:pointer; }
+        .modal-body { padding:1rem; }
+        
+        #toast { position:fixed; bottom:-80px; left:50%; transform:translateX(-50%); background:rgba(8,8,15,0.95); border:1px solid rgba(0,255,157,0.3); padding:0.85rem 1.75rem; border-radius:2rem; z-index:9999; transition:bottom 0.4s; font-size:0.85rem; }
+        #toast.show { bottom:2rem; }
+        
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-thumb { background:rgba(0,255,157,0.2); border-radius:3px; }
+    </style>
+</head>
+<body>
+    <div id="onboarding">
+        <div class="glow-logo">⚡</div>
+        <h1>Cellules Citoyennes</h1>
+        <p>Créez des groupes de veille citoyenne et lancez des ateliers d'intelligence collective.</p>
+        <input type="text" id="pseudo-input" placeholder="Votre pseudo" autofocus>
+        <div class="err" id="err">Entrez un pseudo</div>
+        <button onclick="enterApp()">Commencer</button>
+    </div>
+
+    <div id="app">
+        <header>
+            <div class="logo"><span>⚡</span> Cellules</div>
+            <div class="stats">
+                <div class="stat"><div class="stat-val" id="stat-c">0</div><div class="stat-lbl">Cellules</div></div>
+                <div class="stat"><div class="stat-val" id="stat-a">0</div><div class="stat-lbl">Ateliers</div></div>
+                <div class="stat"><div class="stat-val" id="stat-p">0</div><div class="stat-lbl">Citoyens</div></div>
+            </div>
+            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+        </header>
+        <main>
+            <div id="map-wrap">
+                <div id="map"></div>
+                <canvas id="glow-canvas"></canvas>
+                <div class="legend">
+                    <div class="legend-title">TERRITOIRES</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#ffea00;"></div> Recrutement</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#00ff9d;"></div> Active</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#00d4ff;"></div> Atelier</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#ff0080;"></div> Antenne</div>
+                </div>
+                <button class="locate-btn" onclick="locate()">📍</button>
+                <div class="map-controls">
+                    <button class="map-btn active" id="btn-zones" onclick="toggleZones()">◐ Zones</button>
+                    <button class="map-btn active" id="btn-links" onclick="toggleLinks()">⟁ Réseau</button>
+                </div>
+                <button class="fab" onclick="openCreate()">+</button>
+            </div>
+            <aside id="sidebar">
+                <div class="sidebar-header">
+                    <span class="sidebar-title">Tableau de bord</span>
+                    <button class="sidebar-close" onclick="toggleSidebar()">×</button>
+                </div>
+                <div class="tabs">
+                    <div class="tab active" data-tab="cellules" onclick="switchTab('cellules')">📍 Cellules</div>
+                    <div class="tab" data-tab="ateliers" onclick="switchTab('ateliers')">💬 Ateliers</div>
+                    <div class="tab" data-tab="sync" onclick="switchTab('sync')">🔄 Sync</div>
+                </div>
+                <div class="sidebar-body">
+                    <div id="tab-cellules" class="tab-content active"></div>
+                    <div id="tab-ateliers" class="tab-content"></div>
+                    <div id="tab-sync" class="tab-content"></div>
+                    <div id="tab-detail" class="tab-content"></div>
+                </div>
+            </aside>
+        </main>
+    </div>
+    
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="modal-title">Modal</span>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+        </div>
+    </div>
+    
+    <div id="toast"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    const KEY='cellules_v4',THEMES={mobilite:{e:'🚲',l:'Mobilité',c:'#00ff9d'},environnement:{e:'🌱',l:'Environnement',c:'#22cc77'},social:{e:'🤝',l:'Social',c:'#ff9d00'},numerique:{e:'💻',l:'Numérique',c:'#00d4ff'},culture:{e:'🎭',l:'Culture',c:'#ff00ff'},economie:{e:'💼',l:'Économie',c:'#ffea00'},democratie:{e:'🗳️',l:'Démocratie',c:'#ff3366'},education:{e:'📚',l:'Éducation',c:'#9d00ff'},sante:{e:'🏥',l:'Santé',c:'#00ffcc'},autre:{e:'📋',l:'Autre',c:'#888'}};
+    const SEEDS=[{id:'s1',lat:50.8466,lon:4.3528,title:'Antenne Bruxelles',theme:'democratie',desc:'Point de ralliement Bruxelles',radius:12},{id:'s2',lat:50.4669,lon:4.8675,title:'Antenne Namur',theme:'democratie',desc:'Point de ralliement Namur',radius:15},{id:'s3',lat:50.6326,lon:5.5797,title:'Antenne Liège',theme:'social',desc:'Point de ralliement Liège',radius:12},{id:'s4',lat:50.4108,lon:4.4446,title:'Antenne Charleroi',theme:'social',desc:'Point de ralliement Charleroi',radius:10},{id:'s5',lat:50.4542,lon:3.9523,title:'Antenne Mons',theme:'culture',desc:'Point de ralliement Mons',radius:10}];
+    
+    let map,layers={},data,user,userPos,clickedPos,showZones=true,showLinks=true,glowCanvas,glowCtx,currentTab='cellules';
+    
+    function boot(){user=localStorage.getItem('cellules_user');data=load();if(user)startApp();}
+    function load(){const s=localStorage.getItem(KEY);if(s)return JSON.parse(s);const d={cellules:SEEDS.map(s=>({...s,seed:true,creator:'Réseau',participants:[{name:'Réseau',role:'seed'}],min:5,max:15,createdAt:new Date().toISOString()})),ateliers:[]};localStorage.setItem(KEY,JSON.stringify(d));return d;}
+    function save(){localStorage.setItem(KEY,JSON.stringify(data));}
+    
+    function enterApp(){const i=document.getElementById('pseudo-input'),e=document.getElementById('err'),p=i.value.trim();if(!p){e.style.display='block';i.focus();return;}user=p;localStorage.setItem('cellules_user',p);startApp();}
+    function startApp(){document.getElementById('onboarding').classList.add('hidden');document.getElementById('app').classList.add('active');if(typeof L==='undefined'){setTimeout(startApp,100);return;}initMap();initGlow();}
+    
+    function initMap(){
+        map=L.map('map',{center:[50.5,4.5],zoom:8,zoomControl:false});
+        L.control.zoom({position:'bottomright'}).addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18}).addTo(map);
+        layers.zones=L.layerGroup().addTo(map);layers.links=L.layerGroup().addTo(map);layers.markers=L.layerGroup().addTo(map);
+        map.on('click',e=>{clickedPos={lat:e.latlng.lat,lon:e.latlng.lng};openCreate();});
+        map.on('moveend zoomend',renderGlow);
+        render();renderTabs();updateStats();locate();
+    }
+    
+    function render(){
+        layers.zones.clearLayers();layers.links.clearLayers();layers.markers.clearLayers();
+        if(showZones){
+            data.cellules.forEach(c=>{
+                const t=THEMES[c.theme]||THEMES.autre,r=(c.radius||5)*1000,n=c.participants.length,rdy=n>=(c.min||5),atl=data.ateliers.some(a=>a.celluleId===c.id&&a.status!=='done');
+                L.circle([c.lat,c.lon],{radius:r*1.8,color:'transparent',fillColor:t.c,fillOpacity:0.015,weight:0}).addTo(layers.zones);
+                L.circle([c.lat,c.lon],{radius:r,color:t.c,fillColor:t.c,fillOpacity:rdy?0.08:0.03,weight:rdy?2:1,opacity:rdy?0.5:0.2,dashArray:rdy?null:'8,8'}).addTo(layers.zones);
+                if(rdy)L.circle([c.lat,c.lon],{radius:r*0.25,color:t.c,fillColor:t.c,fillOpacity:0.2,weight:1}).addTo(layers.zones);
+                if(atl)L.circle([c.lat,c.lon],{radius:r*1.2,color:'#00d4ff',fillOpacity:0,weight:2,opacity:0.4,dashArray:'4,8'}).addTo(layers.zones);
+            });
+        }
+        if(showLinks){
+            const active=data.cellules.filter(c=>c.participants.length>=5);
+            active.forEach((a,i)=>{active.slice(i+1).forEach(b=>{const d=dist(a.lat,a.lon,b.lat,b.lon);if(d<40){const ca=THEMES[a.theme]?.c||'#00d4ff',w=Math.max(1,4-d/12),o=Math.max(0.1,0.5-d/80);L.polyline([[a.lat,a.lon],[b.lat,b.lon]],{color:ca,weight:w,opacity:o,dashArray:'6,12'}).addTo(layers.links);}});});
+        }
+        data.cellules.forEach(c=>{
+            const t=THEMES[c.theme]||THEMES.autre,n=c.participants.length,rdy=n>=(c.min||5),atl=data.ateliers.some(a=>a.celluleId===c.id&&a.status!=='done'),sz=Math.min(18,7+n*1.5);
+            let col='#ffea00';if(rdy)col='#00ff9d';if(atl)col='#00d4ff';if(c.seed)col='#ff0080';
+            if(rdy||atl)L.circleMarker([c.lat,c.lon],{radius:sz+10,color:'transparent',fillColor:col,fillOpacity:atl?0.25:0.12}).addTo(layers.markers);
+            const m=L.circleMarker([c.lat,c.lon],{radius:sz,color:'#fff',fillColor:col,fillOpacity:1,weight:2});
+            m.on('click',e=>{L.DomEvent.stopPropagation(e);showDetail(c.id);});
+            m.bindTooltip(`<b style="color:${t.c}">${t.e} ${c.title}</b><br>${n} participants`,{direction:'top',offset:[0,-sz]});
+            m.addTo(layers.markers);
+        });
+        renderGlow();
+    }
+    
+    function initGlow(){glowCanvas=document.getElementById('glow-canvas');glowCtx=glowCanvas.getContext('2d');resizeGlow();window.addEventListener('resize',resizeGlow);animateGlow();}
+    function resizeGlow(){const w=document.getElementById('map-wrap');glowCanvas.width=w.offsetWidth;glowCanvas.height=w.offsetHeight;}
+    function renderGlow(){if(!glowCtx||!map)return;glowCtx.clearRect(0,0,glowCanvas.width,glowCanvas.height);data.cellules.forEach(c=>{const atl=data.ateliers.some(a=>a.celluleId===c.id&&a.status!=='done');if(!atl)return;const pt=map.latLngToContainerPoint([c.lat,c.lon]),t=THEMES[c.theme]||THEMES.autre,pulse=0.6+0.4*Math.sin(Date.now()/1000*2),rad=50*pulse;const g=glowCtx.createRadialGradient(pt.x,pt.y,0,pt.x,pt.y,rad);g.addColorStop(0,t.c+'60');g.addColorStop(1,'transparent');glowCtx.fillStyle=g;glowCtx.beginPath();glowCtx.arc(pt.x,pt.y,rad,0,Math.PI*2);glowCtx.fill();});}
+    function animateGlow(){renderGlow();requestAnimationFrame(animateGlow);}
+    
+    function locate(){if(!navigator.geolocation)return;navigator.geolocation.getCurrentPosition(p=>{userPos={lat:p.coords.latitude,lon:p.coords.longitude};map.setView([userPos.lat,userPos.lon],10);renderTabs();},()=>map.setView([50.5,4.5],8));}
+    function toggleZones(){showZones=!showZones;document.getElementById('btn-zones').classList.toggle('active',showZones);render();}
+    function toggleLinks(){showLinks=!showLinks;document.getElementById('btn-links').classList.toggle('active',showLinks);render();}
+    function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+    
+    function switchTab(tab){currentTab=tab;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.getElementById('tab-'+tab).classList.add('active');renderTabs();}
+    function renderTabs(){renderCellulesList();renderAteliersList();renderSyncPanel();}
+    
+    function renderCellulesList(){
+        let list=[...data.cellules];if(userPos)list=list.map(c=>({...c,d:dist(userPos.lat,userPos.lon,c.lat,c.lon)})).sort((a,b)=>a.d-b.d);
+        let h='';list.forEach(c=>{const t=THEMES[c.theme]||THEMES.autre,n=c.participants.length,pct=(n/(c.max||9))*100,rdy=n>=(c.min||5),atl=data.ateliers.some(a=>a.celluleId===c.id&&a.status!=='done'),isCreator=c.creator===user;let bdg=c.seed?'<span class="badge badge-p">Antenne</span>':atl?'<span class="badge badge-b">Atelier</span>':rdy?'<span class="badge badge-g">Active</span>':'<span class="badge badge-y">Recrute</span>';
+        h+=`<div class="card" style="--c:${t.c}"><div class="card-header"><div class="card-title" onclick="showDetail('${c.id}')">${t.e} ${c.title}${bdg}</div>${isCreator&&!c.seed?`<div class="card-actions"><button class="card-action" onclick="editCellule('${c.id}')">✏️</button><button class="card-action danger" onclick="deleteCellule('${c.id}')">🗑️</button></div>`:''}</div><div class="card-meta" onclick="showDetail('${c.id}')">${n}/${c.max||9}${c.d?' · '+c.d.toFixed(1)+' km':''}</div><div class="progress"><div class="progress-fill" style="width:${pct}%;background:${t.c};"></div></div></div>`;});
+        document.getElementById('tab-cellules').innerHTML=h||'<div style="text-align:center;color:#444;padding:2rem;">Aucune cellule</div>';
+    }
+    
+    function renderAteliersList(){
+        let h='';const active=data.ateliers.filter(a=>a.status!=='done'),done=data.ateliers.filter(a=>a.status==='done');
+        if(active.length){h+='<div style="font-size:0.7rem;color:#00d4ff;margin-bottom:0.5rem;">EN COURS</div>';active.forEach(a=>{const c=data.cellules.find(x=>x.id===a.celluleId);if(!c)return;const t=THEMES[c.theme]||THEMES.autre,isCreator=c.creator===user,rem=getTimeRemaining(a);h+=`<div class="card" style="--c:${t.c}"><div class="card-header"><div class="card-title" onclick="showAtelier('${a.id}')">${t.e} ${a.title}<span class="badge badge-b">${a.status}</span></div>${isCreator?`<div class="card-actions"><button class="card-action" onclick="editAtelier('${a.id}')">✏️</button><button class="card-action danger" onclick="deleteAtelier('${a.id}')">🗑️</button></div>`:''}</div><div class="card-meta" onclick="showAtelier('${a.id}')">${c.title} · ${rem} · ${a.contributions?.length||0} contrib.</div></div>`;});}
+        if(done.length){h+='<div style="font-size:0.7rem;color:#888;margin:1rem 0 0.5rem;">TERMINÉS</div>';done.slice(0,5).forEach(a=>{const c=data.cellules.find(x=>x.id===a.celluleId);if(!c)return;const t=THEMES[c.theme]||THEMES.autre;h+=`<div class="card" style="--c:#888" onclick="showAtelier('${a.id}')"><div class="card-title">${t.e} ${a.title}</div><div class="card-meta">${a.contributions?.length||0} contributions</div></div>`;});}
+        document.getElementById('tab-ateliers').innerHTML=h||'<div style="text-align:center;color:#444;padding:2rem;">Aucun atelier</div>';
+    }
+    
+    function renderSyncPanel(){
+        const tc=data.cellules.length,ta=data.ateliers.length,tp=data.cellules.reduce((s,c)=>s+c.participants.length,0),tct=data.ateliers.reduce((s,a)=>s+(a.contributions?.length||0),0);
+        document.getElementById('tab-sync').innerHTML=`<div class="sync-stats"><div class="sync-stat"><div class="sync-stat-val">${tc}</div><div class="sync-stat-lbl">Cellules</div></div><div class="sync-stat"><div class="sync-stat-val">${ta}</div><div class="sync-stat-lbl">Ateliers</div></div><div class="sync-stat"><div class="sync-stat-val">${tp}</div><div class="sync-stat-lbl">Participants</div></div><div class="sync-stat"><div class="sync-stat-val">${tct}</div><div class="sync-stat-lbl">Contributions</div></div></div><div style="margin-bottom:1rem;"><div style="font-size:0.7rem;color:#00d4ff;margin-bottom:0.5rem;">EXPORTER</div><button class="btn btn-secondary" onclick="exportData()">📦 Télécharger JSON</button></div><div style="margin-bottom:1rem;"><div style="font-size:0.7rem;color:#00d4ff;margin-bottom:0.5rem;">IMPORTER</div><button class="btn btn-secondary" onclick="importData()">📂 Importer fichier</button></div><div style="margin-bottom:1rem;"><div style="font-size:0.7rem;color:#ff3366;margin-bottom:0.5rem;">RÉINITIALISER</div><button class="btn btn-danger" onclick="resetData()">⚠️ Tout effacer</button></div><div><div style="font-size:0.7rem;color:#888;margin-bottom:0.5rem;">PROFIL</div><p style="font-size:0.8rem;color:#666;margin-bottom:0.5rem;">Connecté: <strong style="color:#00ff9d;">${user}</strong></p><button class="btn btn-secondary" onclick="changeUser()">Changer pseudo</button></div>`;
+    }
+    
+    function showDetail(id){
+        const c=data.cellules.find(x=>x.id===id);if(!c)return;map.setView([c.lat,c.lon],12);document.getElementById('sidebar').classList.add('open');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.getElementById('tab-detail').classList.add('active');
+        const t=THEMES[c.theme]||THEMES.autre,n=c.participants.length,rdy=n>=(c.min||5),pct=(n/(c.max||9))*100,isMember=c.participants.some(p=>p.name===user),isCreator=c.creator===user,atl=data.ateliers.find(a=>a.celluleId===c.id&&a.status!=='done');
+        let h=`<button class="btn btn-back" onclick="backToList()">← Retour</button><div style="margin-bottom:1rem;"><div style="font-size:1.1rem;font-weight:600;color:${t.c};margin-bottom:0.3rem;">${t.e} ${c.title}${isCreator&&!c.seed?'<button class="card-action" onclick="editCellule(\''+c.id+'\')" style="margin-left:0.5rem;">✏️</button>':''}</div><div style="font-size:0.75rem;color:#444;">${t.l} · par ${c.creator}</div>${c.desc?'<div style="font-size:0.8rem;color:#666;margin-top:0.5rem;padding:0.5rem;background:rgba(255,255,255,0.02);border-left:2px solid '+t.c+';">'+c.desc+'</div>':''}</div>`;
+        h+=`<div class="section-title">PARTICIPANTS (${n}/${c.max||9})</div><div class="progress" style="margin-bottom:0.75rem;"><div class="progress-fill" style="width:${pct}%;background:${t.c};"></div></div>`;
+        c.participants.forEach((p,i)=>{const me=p.name===user,cr=i===0||p.role==='seed';h+=`<div class="participant"><span style="color:${cr?'#00ff9d':me?'#00d4ff':'#888'}">${cr?'👑 ':''}${p.name}${me?' (vous)':''}</span></div>`;});
+        if(!isMember&&n<(c.max||9))h+=`<button class="btn btn-primary" style="margin-top:0.75rem;" onclick="join('${c.id}')">Rejoindre</button>`;
+        else if(isMember&&!c.seed&&c.participants.findIndex(p=>p.name===user)>0)h+=`<button class="btn btn-secondary" style="margin-top:0.75rem;" onclick="leave('${c.id}')">Quitter</button>`;
+        if(rdy){h+=`<div class="section-title">ATELIER${atl?'':'<button class="btn btn-sm btn-primary" onclick="launchAtelier(\''+c.id+'\')">+ Nouveau</button>'}</div>`;if(atl){const rem=getTimeRemaining(atl);h+=`<div class="workstation"><div class="workstation-title">📋 ${atl.title}</div><div class="workstation-timer"><div class="timer-val">${rem}</div><div class="timer-lbl">${atl.status==='async'?'avant live':'restant'}</div></div><button class="btn btn-primary" onclick="showAtelier('${atl.id}')">Ouvrir l'atelier</button></div>`;}}
+        document.getElementById('tab-detail').innerHTML=h;
+    }
+    
+    function showAtelier(id){
+        const a=data.ateliers.find(x=>x.id===id);if(!a)return;const c=data.cellules.find(x=>x.id===a.celluleId);if(!c)return;
+        document.getElementById('sidebar').classList.add('open');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.getElementById('tab-detail').classList.add('active');
+        const t=THEMES[c.theme]||THEMES.autre,rem=getTimeRemaining(a),isMember=c.participants.some(p=>p.name===user),isCreator=c.creator===user;
+        let h=`<button class="btn btn-back" onclick="switchTab('ateliers')">← Retour</button><div class="workstation"><div class="workstation-title" style="color:${t.c}">${t.e} ${a.title}${isCreator?'<button class="card-action" onclick="editAtelier(\''+a.id+'\')" style="margin-left:auto;">✏️</button>':''}</div><div style="font-size:0.75rem;color:#555;margin-bottom:0.5rem;">Cellule: ${c.title} · ${a.status==='done'?'Terminé':a.status}</div>${a.status!=='done'?`<div class="workstation-timer"><div class="timer-val">${rem}</div><div class="timer-lbl">${a.status==='async'?'avant phase live':'avant fin'}</div></div>`:''}</div>`;
+        h+=`<div class="section-title">CONTRIBUTIONS (${a.contributions?.length||0})</div>`;
+        if(isMember&&a.status!=='done')h+=`<div class="form-group"><textarea class="form-input" id="contrib-text" placeholder="Partagez vos idées..."></textarea></div><button class="btn btn-primary btn-sm" onclick="addContribution('${a.id}')" style="margin-bottom:1rem;">Publier</button>`;
+        if(a.contributions?.length){[...a.contributions].sort((x,y)=>(y.votes||0)-(x.votes||0)).forEach(ct=>{const isAuthor=ct.author===user,hasVoted=ct.voters?.includes(user);h+=`<div class="contribution"><div class="contribution-header"><span class="contribution-author">${ct.author}</span><span class="contribution-date">${new Date(ct.date).toLocaleDateString()}</span></div><div class="contribution-text">${ct.text}</div><div class="contribution-actions"><button class="contribution-action ${hasVoted?'voted':''}" onclick="voteContribution('${a.id}','${ct.id}')">${hasVoted?'★':'☆'} ${ct.votes||0}</button>${isAuthor?`<button class="contribution-action" onclick="deleteContribution('${a.id}','${ct.id}')">🗑️</button>`:''}</div></div>`;});}
+        if(isCreator&&a.status!=='done')h+=`<div class="section-title">ACTIONS</div><div class="btn-group">${a.status==='async'?`<button class="btn btn-secondary" onclick="goLive('${a.id}')">🔴 Live</button>`:''}<button class="btn btn-secondary" onclick="endAtelier('${a.id}')">✅ Terminer</button></div>`;
+        document.getElementById('tab-detail').innerHTML=h;
+    }
+    
+    function backToList(){switchTab(currentTab);}
+    
+    function openCreate(){const pos=clickedPos||userPos||{lat:50.5,lon:4.5};let opts=Object.entries(THEMES).map(([k,v])=>`<option value="${k}">${v.e} ${v.l}</option>`).join('');openModal('Nouvelle cellule',`<div class="form-group"><label class="form-label">Titre</label><input class="form-input" id="f-title" placeholder="Ex: Vélo-école Ixelles"></div><div class="form-group"><label class="form-label">Thématique</label><select class="form-input" id="f-theme"><option value="">Choisir...</option>${opts}</select></div><div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="f-desc"></textarea></div><div class="form-group"><label class="form-label">Rayon (km)</label><input type="number" class="form-input" id="f-radius" value="5" min="1" max="20"></div><div style="color:#444;font-size:0.7rem;margin-bottom:1rem;">📍 ${pos.lat.toFixed(4)}, ${pos.lon.toFixed(4)}</div><button class="btn btn-primary" onclick="createCellule(${pos.lat},${pos.lon})">Créer</button>`);}
+    function createCellule(lat,lon){const title=document.getElementById('f-title').value.trim(),theme=document.getElementById('f-theme').value,desc=document.getElementById('f-desc').value.trim(),radius=parseFloat(document.getElementById('f-radius').value)||5;if(!title||!theme){toast('Titre et thématique requis');return;}const c={id:'c'+Date.now(),lat,lon,title,theme,desc,radius,creator:user,participants:[{name:user,role:'creator'}],min:5,max:9,createdAt:new Date().toISOString()};data.cellules.push(c);save();clickedPos=null;closeModal();render();renderTabs();updateStats();showDetail(c.id);toast('Cellule créée !');}
+    
+    function editCellule(id){const c=data.cellules.find(x=>x.id===id);if(!c||c.creator!==user)return;let opts=Object.entries(THEMES).map(([k,v])=>`<option value="${k}" ${c.theme===k?'selected':''}>${v.e} ${v.l}</option>`).join('');openModal('Modifier',`<div class="form-group"><label class="form-label">Titre</label><input class="form-input" id="e-title" value="${c.title}"></div><div class="form-group"><label class="form-label">Thématique</label><select class="form-input" id="e-theme">${opts}</select></div><div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="e-desc">${c.desc||''}</textarea></div><div class="form-group"><label class="form-label">Rayon</label><input type="number" class="form-input" id="e-radius" value="${c.radius||5}"></div><button class="btn btn-primary" onclick="saveCellule('${id}')">Enregistrer</button>`);}
+    function saveCellule(id){const c=data.cellules.find(x=>x.id===id);if(!c)return;c.title=document.getElementById('e-title').value.trim()||c.title;c.theme=document.getElementById('e-theme').value||c.theme;c.desc=document.getElementById('e-desc').value.trim();c.radius=parseFloat(document.getElementById('e-radius').value)||5;save();closeModal();render();renderTabs();showDetail(id);toast('Modifié');}
+    function deleteCellule(id){const c=data.cellules.find(x=>x.id===id);if(!c||c.seed)return;openModal('Supprimer',`<p style="color:#888;margin-bottom:1rem;">Supprimer <strong>${c.title}</strong> ?</p><div class="btn-group"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-danger" onclick="confirmDeleteCellule('${id}')">Supprimer</button></div>`);}
+    function confirmDeleteCellule(id){data.cellules=data.cellules.filter(x=>x.id!==id);data.ateliers=data.ateliers.filter(a=>a.celluleId!==id);save();closeModal();render();renderTabs();updateStats();switchTab('cellules');toast('Supprimé');}
+    
+    function launchAtelier(celluleId){const c=data.cellules.find(x=>x.id===celluleId);if(!c)return;openModal('Lancer atelier',`<div class="form-group"><label class="form-label">Titre</label><input class="form-input" id="a-title" value="Atelier ${c.title}"></div><div class="form-group"><label class="form-label">Durée async (jours)</label><select class="form-input" id="a-dur"><option value="7">7 jours</option><option value="14" selected>14 jours</option><option value="21">21 jours</option></select></div><button class="btn btn-primary" onclick="createAtelier('${celluleId}')">🚀 Lancer</button>`);}
+    function createAtelier(celluleId){const title=document.getElementById('a-title').value.trim()||'Atelier',dur=parseInt(document.getElementById('a-dur').value)||14,now=new Date(),asyncEnd=new Date(now.getTime()+dur*24*60*60*1000);const a={id:'a'+Date.now(),celluleId,title,status:'async',createdAt:now.toISOString(),asyncEnd:asyncEnd.toISOString(),contributions:[]};data.ateliers.push(a);save();closeModal();render();renderTabs();updateStats();showAtelier(a.id);toast('🚀 Lancé !');}
+    function editAtelier(id){const a=data.ateliers.find(x=>x.id===id);if(!a)return;openModal('Modifier',`<div class="form-group"><label class="form-label">Titre</label><input class="form-input" id="ea-title" value="${a.title}"></div><button class="btn btn-primary" onclick="saveAtelier('${id}')">Enregistrer</button>`);}
+    function saveAtelier(id){const a=data.ateliers.find(x=>x.id===id);if(!a)return;a.title=document.getElementById('ea-title').value.trim()||a.title;save();closeModal();renderTabs();showAtelier(id);toast('Modifié');}
+    function deleteAtelier(id){const a=data.ateliers.find(x=>x.id===id);if(!a)return;openModal('Supprimer',`<p style="color:#888;margin-bottom:1rem;">Supprimer cet atelier ?</p><div class="btn-group"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-danger" onclick="confirmDeleteAtelier('${id}')">Supprimer</button></div>`);}
+    function confirmDeleteAtelier(id){data.ateliers=data.ateliers.filter(x=>x.id!==id);save();closeModal();render();renderTabs();updateStats();switchTab('ateliers');toast('Supprimé');}
+    function goLive(id){const a=data.ateliers.find(x=>x.id===id);if(!a)return;a.status='live';a.liveStart=new Date().toISOString();a.liveEnd=new Date(Date.now()+48*60*60*1000).toISOString();save();render();showAtelier(id);toast('🔴 Live !');}
+    function endAtelier(id){const a=data.ateliers.find(x=>x.id===id);if(!a)return;a.status='done';a.endedAt=new Date().toISOString();save();render();renderTabs();showAtelier(id);toast('✅ Terminé');}
+    
+    function addContribution(atelierId){const a=data.ateliers.find(x=>x.id===atelierId);if(!a||a.status==='done')return;const text=document.getElementById('contrib-text').value.trim();if(!text){toast('Écrivez quelque chose');return;}if(!a.contributions)a.contributions=[];a.contributions.push({id:'ct'+Date.now(),author:user,text,date:new Date().toISOString(),votes:0,voters:[]});save();showAtelier(atelierId);toast('Publié !');}
+    function voteContribution(atelierId,contribId){const a=data.ateliers.find(x=>x.id===atelierId);if(!a)return;const ct=a.contributions?.find(x=>x.id===contribId);if(!ct)return;if(!ct.voters)ct.voters=[];const idx=ct.voters.indexOf(user);if(idx===-1){ct.voters.push(user);ct.votes=(ct.votes||0)+1;}else{ct.voters.splice(idx,1);ct.votes=Math.max(0,(ct.votes||0)-1);}save();showAtelier(atelierId);}
+    function deleteContribution(atelierId,contribId){const a=data.ateliers.find(x=>x.id===atelierId);if(!a)return;a.contributions=a.contributions?.filter(x=>x.id!==contribId)||[];save();showAtelier(atelierId);toast('Supprimé');}
+    
+    function join(id){const c=data.cellules.find(x=>x.id===id);if(!c||c.participants.some(p=>p.name===user)||c.participants.length>=(c.max||9))return;c.participants.push({name:user});save();render();renderTabs();updateStats();showDetail(id);toast(c.participants.length>=(c.min||5)?'🎉 Quorum !':'Bienvenue !');}
+    function leave(id){const c=data.cellules.find(x=>x.id===id);if(!c)return;const i=c.participants.findIndex(p=>p.name===user);if(i<=0)return;c.participants.splice(i,1);save();render();renderTabs();updateStats();showDetail(id);toast('Quitté');}
+    
+    function exportData(){const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`cellules_${new Date().toISOString().split('T')[0]}.json`;a.click();toast('📦 Exporté');}
+    function importData(){const input=document.createElement('input');input.type='file';input.accept='.json';input.onchange=e=>{const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);let nc=0,na=0;(d.cellules||[]).forEach(c=>{if(!data.cellules.some(x=>x.id===c.id)){data.cellules.push(c);nc++;}});(d.ateliers||[]).forEach(a=>{if(!data.ateliers.some(x=>x.id===a.id)){data.ateliers.push(a);na++;}});save();render();renderTabs();updateStats();toast(`📥 ${nc} cellules, ${na} ateliers`);}catch(err){toast('Fichier invalide');}};r.readAsText(e.target.files[0]);};input.click();}
+    function resetData(){openModal('Réinitialiser',`<p style="color:#ff3366;margin-bottom:1rem;">⚠️ Tout effacer ?</p><div class="btn-group"><button class="btn btn-secondary" onclick="closeModal()">Annuler</button><button class="btn btn-danger" onclick="confirmReset()">Confirmer</button></div>`);}
+    function confirmReset(){localStorage.removeItem(KEY);data=load();closeModal();render();renderTabs();updateStats();toast('Réinitialisé');}
+    function changeUser(){openModal('Pseudo',`<div class="form-group"><input class="form-input" id="new-user" value="${user}"></div><button class="btn btn-primary" onclick="saveUser()">Enregistrer</button>`);}
+    function saveUser(){const n=document.getElementById('new-user').value.trim();if(!n)return;user=n;localStorage.setItem('cellules_user',user);closeModal();renderTabs();toast('Pseudo changé');}
+    
+    function getTimeRemaining(a){if(a.status==='done')return'Terminé';const end=a.status==='live'?new Date(a.liveEnd):new Date(a.asyncEnd),diff=end-new Date();if(diff<=0)return'Écoulé';const d=Math.floor(diff/(24*60*60*1000)),h=Math.floor((diff%(24*60*60*1000))/(60*60*1000));return d>0?`${d}j ${h}h`:`${h}h`;}
+    function dist(lat1,lon1,lat2,lon2){const R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180,a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+    function updateStats(){document.getElementById('stat-c').textContent=data.cellules.length;document.getElementById('stat-a').textContent=data.ateliers.filter(a=>a.status!=='done').length;document.getElementById('stat-p').textContent=data.cellules.reduce((s,c)=>s+c.participants.length,0);}
+    function openModal(title,body){document.getElementById('modal-title').textContent=title;document.getElementById('modal-body').innerHTML=body;document.getElementById('modal').classList.add('open');}
+    function closeModal(){document.getElementById('modal').classList.remove('open');}
+    document.getElementById('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal();});
+    function toast(m){const e=document.getElementById('toast');e.textContent=m;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),3000);}
+    boot();
+    </script>
+</body>
+</html>
