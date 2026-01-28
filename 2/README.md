@@ -1,4 +1,6 @@
-Parfait, un mode décentralisé total. Chaque navigateur est autonome, peut exporter/importer des données, et synchroniser manuellement avec d'autres via fichiers JSON ou QR codes.## 🔄 MODE AUTONOME — Protocole de secours
+> Parfait, un mode décentralisé total. Chaque navigateur est autonome, peut exporter/importer des données, et synchroniser manuellement avec d'autres via fichiers JSON ou QR codes.
+
+## 🔄 MODE AUTONOME — Protocole de secours
 
 ### Principe
 
