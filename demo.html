@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ CELLULES CITOYENNES — Maillage Territorial FWB</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --void: #000; --dark: #0a0a0f; --mid: #111118; --light: #1a1a24;
+            --green: #00ff9d; --blue: #00d4ff; --pink: #ff0080; --yellow: #ffea00; --red: #ff3366;
+            --text: #fff; --dim: #888; --muted: #444;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Share Tech Mono', monospace; background: var(--void); color: var(--text); min-height: 100vh; }
+        
+        /* Layout */
+        .app { display: grid; grid-template-rows: 50px 1fr; height: 100vh; }
+        .main { display: grid; grid-template-columns: 1fr 400px; overflow: hidden; }
+        @media (max-width: 900px) { .main { grid-template-columns: 1fr; } .sidebar { position: fixed; right: -400px; top: 50px; bottom: 0; width: 90%; max-width: 400px; transition: right 0.3s; z-index: 1000; } .sidebar.open { right: 0; } }
+        
+        /* Header */
+        header { background: var(--dark); border-bottom: 2px solid var(--green); display: flex; align-items: center; justify-content: space-between; padding: 0 1rem; z-index: 100; }
+        .logo { font-family: 'Orbitron'; font-size: 0.9rem; color: var(--green); text-shadow: 0 0 10px var(--green); display: flex; align-items: center; gap: 0.5rem; }
+        .nav { display: flex; gap: 0.5rem; }
+        .nav-btn { font-family: 'Orbitron'; font-size: 0.65rem; padding: 0.5rem 1rem; background: none; border: 1px solid var(--muted); color: var(--dim); cursor: pointer; transition: all 0.2s; }
+        .nav-btn:hover { border-color: var(--green); color: var(--green); }
+        .nav-btn.active { background: var(--green); color: var(--void); border-color: var(--green); }
+        .user-area { display: flex; align-items: center; gap: 1rem; }
+        .user-pseudo { font-size: 0.75rem; color: var(--green); }
+        .stats { display: flex; gap: 1.5rem; }
+        .stat { text-align: center; }
+        .stat-val { font-family: 'Orbitron'; font-size: 1rem; color: var(--green); }
+        .stat-lbl { font-size: 0.55rem; color: var(--muted); }
+        
+        /* Map */
+        .map-container { position: relative; background: var(--void); }
+        #map { width: 100%; height: 100%; }
+        .leaflet-container { background: var(--void); }
+        .leaflet-tile-pane { filter: saturate(0.1) brightness(0.25) contrast(1.5); }
+        .leaflet-draw-toolbar a { background-color: var(--dark) !important; color: var(--green) !important; border: 1px solid var(--green) !important; }
+        
+        .map-overlay { position: absolute; top: 10px; left: 10px; z-index: 500; display: flex; flex-direction: column; gap: 5px; }
+        .map-btn { width: 36px; height: 36px; background: var(--dark); border: 1px solid var(--green); color: var(--green); cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; }
+        .map-btn:hover, .map-btn.active { background: var(--green); color: var(--void); }
+        
+        .legend { position: absolute; bottom: 20px; left: 10px; z-index: 500; background: var(--dark); border: 1px solid var(--muted); padding: 0.75rem; font-size: 0.65rem; }
+        .legend-title { font-family: 'Orbitron'; font-size: 0.6rem; color: var(--blue); margin-bottom: 0.5rem; }
+        .legend-item { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; color: var(--dim); }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        
+        /* Sidebar */
+        .sidebar { background: var(--dark); border-left: 1px solid var(--muted); display: flex; flex-direction: column; overflow: hidden; }
+        .sidebar-header { padding: 0.75rem 1rem; border-bottom: 1px solid var(--muted); display: flex; justify-content: space-between; align-items: center; }
+        .sidebar-title { font-family: 'Orbitron'; font-size: 0.7rem; color: var(--blue); }
+        .sidebar-close { display: none; background: none; border: none; color: var(--pink); font-size: 1.2rem; cursor: pointer; }
+        @media (max-width: 900px) { .sidebar-close { display: block; } }
+        .sidebar-content { flex: 1; overflow-y: auto; }
+        .sidebar-section { padding: 1rem; border-bottom: 1px solid var(--muted); }
+        .section-title { font-family: 'Orbitron'; font-size: 0.6rem; color: var(--blue); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        /* Auth */
+        .auth-form { padding: 1.5rem; }
+        .auth-title { font-family: 'Orbitron'; font-size: 1rem; color: var(--green); margin-bottom: 1rem; text-align: center; }
+        .auth-tabs { display: flex; margin-bottom: 1rem; }
+        .auth-tab { flex: 1; padding: 0.5rem; background: none; border: 1px solid var(--muted); color: var(--dim); cursor: pointer; font-family: 'Share Tech Mono'; }
+        .auth-tab.active { background: var(--green); color: var(--void); border-color: var(--green); }
+        
+        /* Forms */
+        .form-row { margin-bottom: 0.75rem; }
+        .form-label { font-size: 0.65rem; color: var(--dim); display: block; margin-bottom: 0.25rem; }
+        .form-input { width: 100%; font-family: 'Share Tech Mono'; font-size: 0.85rem; padding: 0.5rem; background: var(--void); border: 1px solid var(--muted); color: var(--text); }
+        .form-input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 10px rgba(0,255,157,0.2); }
+        textarea.form-input { min-height: 80px; resize: vertical; }
+        select.form-input { cursor: pointer; }
+        .form-hint { font-size: 0.6rem; color: var(--muted); margin-top: 0.25rem; }
+        
+        /* Buttons */
+        .btn { font-family: 'Orbitron'; font-size: 0.7rem; padding: 0.6rem 1rem; border: none; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 0.5rem; }
+        .btn-primary { background: var(--green); color: var(--void); }
+        .btn-primary:hover { box-shadow: 0 0 20px var(--green); }
+        .btn-secondary { background: none; border: 1px solid var(--blue); color: var(--blue); }
+        .btn-secondary:hover { background: var(--blue); color: var(--void); }
+        .btn-danger { background: none; border: 1px solid var(--red); color: var(--red); }
+        .btn-danger:hover { background: var(--red); color: var(--void); }
+        .btn-block { width: 100%; justify-content: center; }
+        .btn-sm { font-size: 0.6rem; padding: 0.4rem 0.75rem; }
+        .btn-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        
+        /* Cards */
+        .card { background: var(--mid); border: 1px solid var(--muted); padding: 0.75rem; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.15s; }
+        .card:hover { border-color: var(--green); box-shadow: 0 0 15px rgba(0,255,157,0.1); }
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.25rem; }
+        .card-title { font-family: 'Orbitron'; font-size: 0.8rem; color: var(--green); }
+        .card-badge { font-size: 0.55rem; padding: 0.15rem 0.4rem; border-radius: 2px; }
+        .card-badge.recruiting { background: rgba(255,234,0,0.2); color: var(--yellow); border: 1px solid var(--yellow); }
+        .card-badge.active { background: rgba(0,255,157,0.2); color: var(--green); border: 1px solid var(--green); }
+        .card-badge.completed { background: rgba(0,212,255,0.2); color: var(--blue); border: 1px solid var(--blue); }
+        .card-meta { font-size: 0.7rem; color: var(--dim); margin-bottom: 0.5rem; }
+        .card-stats { display: flex; gap: 1rem; font-size: 0.65rem; color: var(--muted); }
+        
+        /* Progress bar */
+        .progress { height: 6px; background: var(--muted); border-radius: 3px; overflow: hidden; margin-top: 0.5rem; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--blue)); transition: width 0.3s; }
+        
+        /* Participants list */
+        .participant { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid var(--muted); }
+        .participant:last-child { border-bottom: none; }
+        .participant-name { font-size: 0.8rem; }
+        .participant-role { font-size: 0.6rem; color: var(--muted); }
+        .participant-creator { color: var(--green); }
+        
+        /* Timeline */
+        .timeline { margin: 1rem 0; }
+        .timeline-item { display: flex; gap: 0.75rem; padding: 0.5rem 0; }
+        .timeline-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--muted); flex-shrink: 0; margin-top: 3px; }
+        .timeline-dot.done { background: var(--green); border-color: var(--green); }
+        .timeline-dot.active { border-color: var(--yellow); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,234,0,0.4); } 50% { box-shadow: 0 0 0 8px rgba(255,234,0,0); } }
+        .timeline-content { flex: 1; }
+        .timeline-title { font-size: 0.75rem; color: var(--text); }
+        .timeline-date { font-size: 0.65rem; color: var(--muted); }
+        
+        /* Graph view */
+        #graph-view { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--dark); display: none; }
+        #graph-view.active { display: block; }
+        #graph-canvas { width: 100%; height: 100%; }
+        
+        /* Modals */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .modal-overlay.hidden { display: none; }
+        .modal { background: var(--dark); border: 1px solid var(--green); width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        .modal-header { padding: 1rem; border-bottom: 1px solid var(--muted); display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { font-family: 'Orbitron'; font-size: 0.9rem; color: var(--green); }
+        .modal-close { background: none; border: none; color: var(--pink); font-size: 1.5rem; cursor: pointer; line-height: 1; }
+        .modal-body { padding: 1rem; }
+        .modal-footer { padding: 1rem; border-top: 1px solid var(--muted); display: flex; gap: 0.5rem; justify-content: flex-end; }
+        
+        /* Toast */
+        .toast { position: fixed; bottom: -60px; left: 50%; transform: translateX(-50%); background: var(--dark); border: 1px solid var(--green); padding: 0.75rem 1.5rem; z-index: 3000; transition: bottom 0.3s; font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; }
+        .toast.show { bottom: 20px; }
+        .toast.error { border-color: var(--red); }
+        
+        /* Empty state */
+        .empty { text-align: center; padding: 2rem; color: var(--muted); }
+        .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        
+        /* Loader */
+        .loader { display: flex; align-items: center; justify-content: center; padding: 2rem; }
+        .spinner { width: 30px; height: 30px; border: 2px solid var(--muted); border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Tabs */
+        .tabs { display: flex; border-bottom: 1px solid var(--muted); }
+        .tab { flex: 1; padding: 0.75rem; background: none; border: none; color: var(--dim); cursor: pointer; font-family: 'Share Tech Mono'; font-size: 0.75rem; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .tab:hover { color: var(--green); }
+        .tab.active { color: var(--green); border-bottom-color: var(--green); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* Leaflet popup custom */
+        .leaflet-popup-content-wrapper { background: var(--dark); color: var(--text); border: 1px solid var(--green); border-radius: 0; box-shadow: 0 0 20px rgba(0,255,157,0.3); }
+        .leaflet-popup-tip { background: var(--dark); }
+        .leaflet-popup-close-button { color: var(--pink) !important; font-size: 1.2rem !important; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--void); }
+        ::-webkit-scrollbar-thumb { background: var(--green); }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div class="logo">
+                <span>⚡</span>
+                <span>CELLULES CITOYENNES</span>
+            </div>
+            <nav class="nav">
+                <button class="nav-btn active" data-view="map">🗺️ Carte</button>
+                <button class="nav-btn" data-view="graph">🕸️ Maillage</button>
+                <button class="nav-btn" data-view="ateliers">📋 Ateliers</button>
+            </nav>
+            <div class="stats">
+                <div class="stat"><div class="stat-val" id="stat-cellules">0</div><div class="stat-lbl">Cellules</div></div>
+                <div class="stat"><div class="stat-val" id="stat-participants">0</div><div class="stat-lbl">Citoyens</div></div>
+                <div class="stat"><div class="stat-val" id="stat-ateliers">0</div><div class="stat-lbl">Ateliers</div></div>
+            </div>
+            <div class="user-area">
+                <span class="user-pseudo" id="user-display"></span>
+                <button class="btn btn-sm btn-secondary" id="btn-auth">Connexion</button>
+            </div>
+        </header>
+        
+        <div class="main">
+            <div class="map-container">
+                <div id="map"></div>
+                <div id="graph-view"><canvas id="graph-canvas"></canvas></div>
+                
+                <div class="map-overlay">
+                    <button class="map-btn" id="btn-locate" title="Ma position">◎</button>
+                    <button class="map-btn" id="btn-draw" title="Tracer périmètre">✎</button>
+                    <button class="map-btn" id="btn-territories" title="Afficher territoires">◇</button>
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-title">LÉGENDE</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#003b7a"></div> Nœud Bruxelles</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#e30613"></div> Nœud Wallonie</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div> Cellule en recrutement</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Cellule active</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> Atelier en cours</div>
+                </div>
+            </div>
+            
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title" id="sidebar-title">CELLULES</div>
+                    <button class="sidebar-close" id="sidebar-close">×</button>
+                </div>
+                
+                <div class="sidebar-content" id="sidebar-content">
+                    <!-- Dynamic content -->
+                </div>
+            </aside>
+        </div>
+    </div>
+    
+    <!-- Auth Modal -->
+    <div class="modal-overlay hidden" id="modal-auth">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">AUTHENTIFICATION</div>
+                <button class="modal-close" onclick="closeModal('modal-auth')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-tab="login">Connexion</button>
+                    <button class="auth-tab" data-tab="register">Inscription</button>
+                </div>
+                <div id="auth-login" class="tab-content active">
+                    <div class="form-row">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" id="login-email">
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label">Mot de passe</label>
+                        <input type="password" class="form-input" id="login-password">
+                    </div>
+                    <button class="btn btn-primary btn-block" id="btn-login">Se connecter</button>
+                    <div style="text-align:center;margin-top:1rem;">
+                        <button class="btn btn-secondary btn-sm" id="btn-magic-link">Magic link (sans mdp)</button>
+                    </div>
+                </div>
+                <div id="auth-register" class="tab-content">
+                    <div class="form-row">
+                        <label class="form-label">Pseudo</label>
+                        <input type="text" class="form-input" id="register-pseudo">
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-input" id="register-email">
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label">Mot de passe</label>
+                        <input type="password" class="form-input" id="register-password">
+                    </div>
+                    <button class="btn btn-primary btn-block" id="btn-register">Créer mon compte</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Cellule Modal -->
+    <div class="modal-overlay hidden" id="modal-create">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">CRÉER UNE CELLULE</div>
+                <button class="modal-close" onclick="closeModal('modal-create')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <label class="form-label">Titre de la cellule</label>
+                    <input type="text" class="form-input" id="create-title" placeholder="Ex: Veille mobilité Ixelles">
+                </div>
+                <div class="form-row">
+                    <label class="form-label">Thématique</label>
+                    <select class="form-input" id="create-theme">
+                        <option value="">Choisir...</option>
+                        <option value="mobilite">🚲 Mobilité</option>
+                        <option value="environnement">🌱 Environnement</option>
+                        <option value="social">🤝 Social</option>
+                        <option value="numerique">💻 Numérique</option>
+                        <option value="culture">🎭 Culture</option>
+                        <option value="economie">💼 Économie</option>
+                        <option value="democratie">🗳️ Démocratie</option>
+                        <option value="education">📚 Éducation</option>
+                        <option value="sante">🏥 Santé</option>
+                        <option value="autre">📋 Autre</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-input" id="create-desc" placeholder="Décrivez l'objectif de cette cellule..."></textarea>
+                </div>
+                <div class="form-row">
+                    <label class="form-label">Lien trace (votre publication)</label>
+                    <input type="url" class="form-input" id="create-trace" placeholder="https://...">
+                    <div class="form-hint">Partagez un lien vers votre publication pour attirer des participants</div>
+                </div>
+                <div class="form-row">
+                    <label class="form-label">Rayon d'influence (km)</label>
+                    <input type="number" class="form-input" id="create-radius" value="5" min="1" max="50">
+                </div>
+                <div class="form-row">
+                    <label class="form-label">Participants (min - max)</label>
+                    <div style="display:flex;gap:0.5rem;">
+                        <input type="number" class="form-input" id="create-min" value="5" min="2" max="20" style="width:50%">
+                        <input type="number" class="form-input" id="create-max" value="9" min="3" max="50" style="width:50%">
+                    </div>
+                </div>
+                <div id="create-location-info" style="background:var(--mid);padding:0.75rem;margin-top:1rem;font-size:0.75rem;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('modal-create')">Annuler</button>
+                <button class="btn btn-primary" id="btn-create-confirm">Créer la cellule</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div class="toast" id="toast"><span id="toast-text"></span></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+    // ════════════════════════════════════════════════════════════════════════════
+    // CONFIGURATION — À MODIFIER AVEC VOS CREDENTIALS SUPABASE
+    // ════════════════════════════════════════════════════════════════════════════
+    const CONFIG = {
+        // REMPLACEZ PAR VOS VALEURS SUPABASE
+        SUPABASE_URL: 'https://VOTRE_PROJECT.supabase.co',
+        SUPABASE_ANON_KEY: 'VOTRE_ANON_KEY',
+        
+        // Grille locale (fallback si pas de DB)
+        LOCAL_MODE: true, // Mettre à false quand Supabase est configuré
+    };
+    
+    // ════════════════════════════════════════════════════════════════════════════
+    // WAIT FOR LIBS
+    // ════════════════════════════════════════════════════════════════════════════
+    (function waitLibs() {
+        if (typeof L === 'undefined' || typeof supabase === 'undefined') {
+            setTimeout(waitLibs, 50);
+            return;
+        }
+        initApp();
+    })();
+    
+    function initApp() {
+        // ════════════════════════════════════════════════════════════════════════
+        // STATE
+        // ════════════════════════════════════════════════════════════════════════
+        const S = {
+            supabase: null,
+            user: null,
+            map: null,
+            layers: { nodes: null, cellules: null, territories: null, draw: null },
+            nodes: [],
+            cellules: [],
+            selectedNode: null,
+            selectedCellule: null,
+            drawnTerritory: null,
+            currentView: 'map',
+            showTerritories: false,
+        };
+        
+        // Local storage for offline/demo mode
+        const LOCAL_KEY = 'cellules_citoyennes_data';
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // SUPABASE INIT
+        // ════════════════════════════════════════════════════════════════════════
+        if (!CONFIG.LOCAL_MODE && CONFIG.SUPABASE_URL !== 'https://VOTRE_PROJECT.supabase.co') {
+            S.supabase = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+            initSupabase();
+        } else {
+            console.log('Mode local activé - données stockées dans localStorage');
+            initLocalMode();
+        }
+        
+        async function initSupabase() {
+            // Check session
+            const { data: { session } } = await S.supabase.auth.getSession();
+            if (session) {
+                S.user = session.user;
+                updateUserUI();
+            }
+            
+            // Auth state change listener
+            S.supabase.auth.onAuthStateChange((event, session) => {
+                S.user = session?.user || null;
+                updateUserUI();
+                if (event === 'SIGNED_IN') {
+                    toast('Connecté !');
+                    closeModal('modal-auth');
+                    loadData();
+                }
+            });
+            
+            // Load initial data
+            loadData();
+            
+            // Realtime subscriptions
+            S.supabase
+                .channel('cellules-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'cellules' }, handleRealtimeChange)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, handleRealtimeChange)
+                .subscribe();
+        }
+        
+        function initLocalMode() {
+            // Generate grid nodes locally
+            generateLocalNodes();
+            
+            // Load local data
+            const saved = localStorage.getItem(LOCAL_KEY);
+            if (saved) {
+                const data = JSON.parse(saved);
+                S.cellules = data.cellules || [];
+            }
+            
+            renderMap();
+            renderSidebar();
+            updateStats();
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // GENERATE LOCAL GRID
+        // ════════════════════════════════════════════════════════════════════════
+        function generateLocalNodes() {
+            S.nodes = [];
+            let id = 0;
+            
+            // Brussels (dense)
+            for (let lat = 50.76; lat <= 50.92; lat += 0.008) {
+                for (let lon = 4.25; lon <= 4.50; lon += 0.008) {
+                    S.nodes.push({ id: 'B' + (id++), lat, lon, zone: 'bxl' });
+                }
+            }
+            
+            // Wallonia (full coverage)
+            for (let lat = 49.50; lat <= 50.80; lat += 0.03) {
+                for (let lon = 2.80; lon <= 6.40; lon += 0.03) {
+                    S.nodes.push({ id: 'W' + (id++), lat, lon, zone: 'wal' });
+                }
+            }
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // DATA LOADING
+        // ════════════════════════════════════════════════════════════════════════
+        async function loadData() {
+            if (CONFIG.LOCAL_MODE) return;
+            
+            try {
+                // Load grid nodes
+                const { data: nodes } = await S.supabase
+                    .from('grid_nodes')
+                    .select('id, location, zone');
+                
+                if (nodes) {
+                    S.nodes = nodes.map(n => ({
+                        id: n.id,
+                        lat: n.location.coordinates[1],
+                        lon: n.location.coordinates[0],
+                        zone: n.zone
+                    }));
+                }
+                
+                // Load cellules with stats
+                const { data: cellules } = await S.supabase
+                    .from('cellules_with_stats')
+                    .select('*')
+                    .neq('status', 'archived');
+                
+                if (cellules) {
+                    S.cellules = cellules;
+                }
+                
+                renderMap();
+                renderSidebar();
+                updateStats();
+                
+            } catch (err) {
+                console.error('Load error:', err);
+                toast('Erreur de chargement', true);
+            }
+        }
+        
+        function handleRealtimeChange(payload) {
+            console.log('Realtime:', payload);
+            loadData(); // Simple reload for now
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // MAP INIT
+        // ════════════════════════════════════════════════════════════════════════
+        S.map = L.map('map', { center: [50.5, 4.5], zoom: 8, preferCanvas: true });
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OSM © CARTO',
+            maxZoom: 18
+        }).addTo(S.map);
+        
+        S.layers.nodes = L.layerGroup().addTo(S.map);
+        S.layers.cellules = L.layerGroup().addTo(S.map);
+        S.layers.territories = L.layerGroup();
+        
+        // Drawing layer
+        S.layers.draw = new L.FeatureGroup().addTo(S.map);
+        
+        const drawControl = new L.Control.Draw({
+            draw: {
+                polygon: { shapeOptions: { color: '#00ff9d', fillOpacity: 0.2 } },
+                circle: { shapeOptions: { color: '#00ff9d', fillOpacity: 0.2 } },
+                polyline: false, marker: false, rectangle: false, circlemarker: false
+            },
+            edit: { featureGroup: S.layers.draw }
+        });
+        
+        S.map.on(L.Draw.Event.CREATED, (e) => {
+            S.layers.draw.clearLayers();
+            S.layers.draw.addLayer(e.layer);
+            S.drawnTerritory = e.layer;
+            toast('Périmètre tracé');
+        });
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // RENDER MAP
+        // ════════════════════════════════════════════════════════════════════════
+        function renderMap() {
+            S.layers.nodes.clearLayers();
+            S.layers.cellules.clearLayers();
+            
+            const celluleNodeIds = new Set(S.cellules.map(c => c.node_id));
+            
+            // Render nodes
+            S.nodes.forEach(n => {
+                if (celluleNodeIds.has(n.id)) return; // Skip if has cellule
+                
+                const color = n.zone === 'bxl' ? '#003b7a' : '#e30613';
+                
+                const marker = L.circleMarker([n.lat, n.lon], {
+                    radius: 4,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.5,
+                    weight: 1
+                });
+                
+                marker.on('click', () => selectNode(n));
+                marker.addTo(S.layers.nodes);
+            });
+            
+            // Render cellules
+            S.cellules.forEach(c => {
+                const ready = (c.participant_count || 0) >= (c.min_participants || 5);
+                const hasAtelier = c.atelier_count > 0;
+                
+                let color = '#ffea00'; // recruiting
+                if (ready) color = '#00ff9d';
+                if (hasAtelier) color = '#00d4ff';
+                
+                const size = 8 + (c.participant_count || 0) * 2;
+                
+                const marker = L.circleMarker([c.lat, c.lon], {
+                    radius: size,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.8,
+                    weight: 2
+                });
+                
+                marker.on('click', () => selectCellule(c));
+                marker.bindTooltip(c.title, { direction: 'top' });
+                marker.addTo(S.layers.cellules);
+                
+                // Territory circle
+                if (S.showTerritories && c.radius_km) {
+                    L.circle([c.lat, c.lon], {
+                        radius: c.radius_km * 1000,
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.1,
+                        weight: 1
+                    }).addTo(S.layers.territories);
+                }
+            });
+            
+            // Render links between ready cellules
+            const readyCellules = S.cellules.filter(c => (c.participant_count || 0) >= 5);
+            readyCellules.forEach((a, i) => {
+                readyCellules.slice(i + 1).forEach(b => {
+                    const d = distance(a.lat, a.lon, b.lat, b.lon);
+                    if (d <= 15) {
+                        L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
+                            color: '#00d4ff',
+                            weight: 1,
+                            opacity: 0.3,
+                            dashArray: '5,10'
+                        }).addTo(S.layers.cellules);
+                    }
+                });
+            });
+        }
+        
+        function distance(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // SELECT NODE / CELLULE
+        // ════════════════════════════════════════════════════════════════════════
+        function selectNode(node) {
+            S.selectedNode = node;
+            S.selectedCellule = null;
+            
+            document.getElementById('sidebar-title').textContent = 'CRÉER CELLULE';
+            
+            const content = `
+                <div class="sidebar-section">
+                    <div class="section-title">📍 NŒUD SÉLECTIONNÉ</div>
+                    <div style="color:var(--green);font-family:Orbitron;margin-bottom:0.5rem;">${node.zone === 'bxl' ? 'Bruxelles' : 'Wallonie'}</div>
+                    <div style="font-size:0.75rem;color:var(--dim);">${node.lat.toFixed(4)}, ${node.lon.toFixed(4)}</div>
+                </div>
+                <div class="sidebar-section">
+                    ${S.user || CONFIG.LOCAL_MODE ? `
+                        <button class="btn btn-primary btn-block" onclick="openCreateModal()">
+                            + Créer une cellule ici
+                        </button>
+                        <div class="form-hint" style="margin-top:0.5rem;text-align:center;">
+                            Ou tracez un périmètre personnalisé avec l'outil ✎
+                        </div>
+                    ` : `
+                        <div class="empty">
+                            <div>Connectez-vous pour créer une cellule</div>
+                            <button class="btn btn-primary" style="margin-top:1rem;" onclick="document.getElementById('modal-auth').classList.remove('hidden')">
+                                Se connecter
+                            </button>
+                        </div>
+                    `}
+                </div>
+            `;
+            
+            document.getElementById('sidebar-content').innerHTML = content;
+            S.map.setView([node.lat, node.lon], 14);
+        }
+        
+        function selectCellule(cellule) {
+            S.selectedCellule = cellule;
+            S.selectedNode = null;
+            
+            document.getElementById('sidebar-title').textContent = 'CELLULE';
+            renderCelluleDetail(cellule);
+            S.map.setView([cellule.lat, cellule.lon], 14);
+        }
+        
+        function renderCelluleDetail(c) {
+            const pct = ((c.participant_count || 0) / (c.max_participants || 9)) * 100;
+            const ready = (c.participant_count || 0) >= (c.min_participants || 5);
+            const statusClass = ready ? 'active' : 'recruiting';
+            const statusText = ready ? 'ACTIVE' : 'RECRUTEMENT';
+            
+            let html = `
+                <div class="sidebar-section">
+                    <div class="card-header">
+                        <div class="card-title" style="font-size:1rem;">${c.title}</div>
+                        <span class="card-badge ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="card-meta">${getThemeEmoji(c.theme)} ${c.theme || ''} • Par ${c.creator_pseudo || 'Anonyme'}</div>
+                    <p style="font-size:0.8rem;color:var(--dim);margin:0.75rem 0;">${c.description || ''}</p>
+                    ${c.trace_url ? `<a href="${c.trace_url}" target="_blank" style="color:var(--blue);font-size:0.75rem;">→ Voir la trace</a>` : ''}
+                </div>
+                
+                <div class="sidebar-section">
+                    <div class="section-title">👥 PARTICIPANTS (${c.participant_count || 0}/${c.max_participants || 9})</div>
+                    <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
+                    <div style="margin-top:0.75rem;">
+                        ${(c.participants || []).map((p, i) => `
+                            <div class="participant">
+                                <span class="participant-name ${i === 0 ? 'participant-creator' : ''}">${i === 0 ? '👑 ' : ''}${p.pseudo || p.name}</span>
+                                <span class="participant-role">${p.role || 'membre'}</span>
+                            </div>
+                        `).join('') || '<div class="empty">Aucun participant</div>'}
+                    </div>
+                    ${(c.participant_count || 0) < (c.max_participants || 9) ? `
+                        <button class="btn btn-secondary btn-block" style="margin-top:0.75rem;" onclick="joinCellule('${c.id}')">
+                            Rejoindre cette cellule
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            
+            if (ready) {
+                html += `
+                    <div class="sidebar-section">
+                        <div class="section-title">📋 ATELIER</div>
+                        ${c.atelier_count > 0 ? `
+                            <div class="timeline">
+                                <div class="timeline-item">
+                                    <div class="timeline-dot done"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">Phase async (14j)</div>
+                                        <div class="timeline-date">En cours</div>
+                                    </div>
+                                </div>
+                                <div class="timeline-item">
+                                    <div class="timeline-dot"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">Live 48h</div>
+                                        <div class="timeline-date">À venir</div>
+                                    </div>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="empty">
+                                <div>Quorum atteint !</div>
+                                <button class="btn btn-primary" style="margin-top:0.5rem;" onclick="startAtelier('${c.id}')">
+                                    🚀 Lancer l'atelier
+                                </button>
+                            </div>
+                        `}
+                    </div>
+                `;
+                
+                // Nearby matches
+                const matches = S.cellules
+                    .filter(x => x.id !== c.id && (x.participant_count || 0) >= 5)
+                    .map(x => ({ ...x, dist: distance(c.lat, c.lon, x.lat, x.lon) }))
+                    .filter(x => x.dist <= 15)
+                    .sort((a, b) => a.dist - b.dist)
+                    .slice(0, 5);
+                
+                if (matches.length > 0) {
+                    html += `
+                        <div class="sidebar-section">
+                            <div class="section-title">🔗 MATCHES TERRITORIAUX</div>
+                            ${matches.map(m => `
+                                <div class="card" onclick="selectCellule(S.cellules.find(c => c.id === '${m.id}'))">
+                                    <div class="card-title">${m.title}</div>
+                                    <div class="card-meta">${m.dist.toFixed(1)} km • ${m.participant_count} participants</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+            }
+            
+            document.getElementById('sidebar-content').innerHTML = html;
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // CRUD OPERATIONS
+        // ════════════════════════════════════════════════════════════════════════
+        window.openCreateModal = function() {
+            if (!S.selectedNode && !S.drawnTerritory) {
+                toast('Sélectionnez un nœud ou tracez un périmètre', true);
+                return;
+            }
+            
+            const loc = S.selectedNode || { lat: S.drawnTerritory.getLatLng().lat, lon: S.drawnTerritory.getLatLng().lng };
+            document.getElementById('create-location-info').innerHTML = `
+                <strong>📍 Position:</strong> ${loc.lat.toFixed(4)}, ${loc.lon.toFixed(4)}<br>
+                ${S.drawnTerritory ? '<span style="color:var(--green)">✓ Périmètre personnalisé tracé</span>' : ''}
+            `;
+            
+            document.getElementById('modal-create').classList.remove('hidden');
+        };
+        
+        document.getElementById('btn-create-confirm').addEventListener('click', async () => {
+            const title = document.getElementById('create-title').value.trim();
+            const theme = document.getElementById('create-theme').value;
+            const desc = document.getElementById('create-desc').value.trim();
+            const trace = document.getElementById('create-trace').value.trim();
+            const radius = parseFloat(document.getElementById('create-radius').value) || 5;
+            const minP = parseInt(document.getElementById('create-min').value) || 5;
+            const maxP = parseInt(document.getElementById('create-max').value) || 9;
+            
+            if (!title) { toast('Titre requis', true); return; }
+            if (!theme) { toast('Thématique requise', true); return; }
+            
+            const loc = S.selectedNode || { lat: 50.5, lon: 4.5 };
+            
+            if (CONFIG.LOCAL_MODE) {
+                // Local save
+                const cellule = {
+                    id: 'C' + Date.now(),
+                    node_id: S.selectedNode?.id,
+                    title, theme, description: desc, trace_url: trace,
+                    lat: loc.lat, lon: loc.lon,
+                    radius_km: radius,
+                    min_participants: minP, max_participants: maxP,
+                    status: 'recruiting',
+                    participant_count: 1,
+                    atelier_count: 0,
+                    creator_pseudo: 'Vous',
+                    participants: [{ name: 'Vous', role: 'creator' }],
+                    created_at: new Date().toISOString()
+                };
+                
+                S.cellules.push(cellule);
+                saveLocal();
+                toast('Cellule créée !');
+                
+            } else {
+                // Supabase save
+                try {
+                    const { error } = await S.supabase.from('cellules').insert({
+                        creator_id: S.user.id,
+                        node_id: S.selectedNode?.id,
+                        title, theme, description: desc, trace_url: trace,
+                        location: `POINT(${loc.lon} ${loc.lat})`,
+                        radius_km: radius,
+                        min_participants: minP, max_participants: maxP,
+                        status: 'recruiting'
+                    });
+                    
+                    if (error) throw error;
+                    toast('Cellule créée !');
+                    loadData();
+                } catch (err) {
+                    toast('Erreur: ' + err.message, true);
+                    return;
+                }
+            }
+            
+            closeModal('modal-create');
+            renderMap();
+            renderSidebar();
+            updateStats();
+        });
+        
+        window.joinCellule = async function(celluleId) {
+            if (!CONFIG.LOCAL_MODE && !S.user) {
+                document.getElementById('modal-auth').classList.remove('hidden');
+                return;
+            }
+            
+            const name = CONFIG.LOCAL_MODE ? prompt('Votre pseudo:') : null;
+            if (CONFIG.LOCAL_MODE && !name) return;
+            
+            if (CONFIG.LOCAL_MODE) {
+                const c = S.cellules.find(x => x.id === celluleId);
+                if (c) {
+                    c.participants = c.participants || [];
+                    c.participants.push({ name, role: 'member' });
+                    c.participant_count = c.participants.length;
+                    if (c.participant_count >= c.min_participants) {
+                        c.status = 'active';
+                    }
+                    saveLocal();
+                    toast('Vous avez rejoint la cellule !');
+                    renderCelluleDetail(c);
+                    renderMap();
+                    updateStats();
+                }
+            } else {
+                try {
+                    const { error } = await S.supabase.from('participants').insert({
+                        cellule_id: celluleId,
+                        user_id: S.user.id,
+                        role: 'member'
+                    });
+                    if (error) throw error;
+                    toast('Vous avez rejoint la cellule !');
+                    loadData();
+                } catch (err) {
+                    toast('Erreur: ' + err.message, true);
+                }
+            }
+        };
+        
+        window.startAtelier = async function(celluleId) {
+            const c = S.cellules.find(x => x.id === celluleId);
+            if (!c) return;
+            
+            if (CONFIG.LOCAL_MODE) {
+                c.atelier_count = 1;
+                c.atelier = {
+                    status: 'async_phase',
+                    async_start: new Date().toISOString(),
+                    async_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+                };
+                saveLocal();
+                toast('Atelier lancé ! Phase async de 14 jours');
+                renderCelluleDetail(c);
+            } else {
+                // Create atelier in Supabase
+                // ... implementation
+            }
+        };
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // SIDEBAR
+        // ════════════════════════════════════════════════════════════════════════
+        function renderSidebar() {
+            if (S.selectedCellule) {
+                renderCelluleDetail(S.selectedCellule);
+                return;
+            }
+            
+            document.getElementById('sidebar-title').textContent = 'CELLULES';
+            
+            let html = `
+                <div class="tabs">
+                    <button class="tab active" data-tab="list">Liste</button>
+                    <button class="tab" data-tab="nearby">À proximité</button>
+                </div>
+                <div class="tab-content active" id="tab-list">
+            `;
+            
+            if (S.cellules.length === 0) {
+                html += '<div class="empty"><div class="empty-icon">🗺️</div><div>Aucune cellule<br>Cliquez sur un nœud pour créer</div></div>';
+            } else {
+                S.cellules.forEach(c => {
+                    const ready = (c.participant_count || 0) >= (c.min_participants || 5);
+                    html += `
+                        <div class="card" onclick="selectCellule(S.cellules.find(x => x.id === '${c.id}'))" style="margin:0.5rem;">
+                            <div class="card-header">
+                                <div class="card-title">${c.title}</div>
+                                <span class="card-badge ${ready ? 'active' : 'recruiting'}">${ready ? 'ACTIVE' : 'RECRUT.'}</span>
+                            </div>
+                            <div class="card-meta">${getThemeEmoji(c.theme)} ${c.theme || ''}</div>
+                            <div class="card-stats">
+                                <span>👥 ${c.participant_count || 0}/${c.max_participants || 9}</span>
+                                <span>📋 ${c.atelier_count || 0} ateliers</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '</div><div class="tab-content" id="tab-nearby"><div class="empty">Activez la géolocalisation</div></div>';
+            
+            document.getElementById('sidebar-content').innerHTML = html;
+            
+            // Tab switching
+            document.querySelectorAll('.tabs .tab').forEach(t => {
+                t.addEventListener('click', function() {
+                    document.querySelectorAll('.tabs .tab').forEach(x => x.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+                    this.classList.add('active');
+                    document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+                });
+            });
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // GRAPH VIEW
+        // ════════════════════════════════════════════════════════════════════════
+        function renderGraph() {
+            const canvas = document.getElementById('graph-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (S.cellules.length === 0) {
+                ctx.fillStyle = '#444';
+                ctx.font = '14px Share Tech Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText('Aucune cellule', canvas.width/2, canvas.height/2);
+                return;
+            }
+            
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            const r = Math.min(cx, cy) * 0.75;
+            
+            const nodes = S.cellules.map((c, i) => ({
+                c,
+                x: cx + Math.cos(i / S.cellules.length * Math.PI * 2 - Math.PI/2) * r,
+                y: cy + Math.sin(i / S.cellules.length * Math.PI * 2 - Math.PI/2) * r
+            }));
+            
+            // Links
+            ctx.strokeStyle = '#00d4ff';
+            ctx.lineWidth = 1;
+            nodes.forEach((a, i) => {
+                nodes.slice(i+1).forEach(b => {
+                    if ((a.c.participant_count || 0) >= 5 && (b.c.participant_count || 0) >= 5) {
+                        const d = distance(a.c.lat, a.c.lon, b.c.lat, b.c.lon);
+                        if (d <= 15) {
+                            ctx.globalAlpha = 0.3;
+                            ctx.beginPath();
+                            ctx.moveTo(a.x, a.y);
+                            ctx.lineTo(b.x, b.y);
+                            ctx.stroke();
+                        }
+                    }
+                });
+            });
+            ctx.globalAlpha = 1;
+            
+            // Nodes
+            nodes.forEach(n => {
+                const ready = (n.c.participant_count || 0) >= 5;
+                const size = 15 + (n.c.participant_count || 0) * 3;
+                
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, size, 0, Math.PI*2);
+                ctx.fillStyle = ready ? '#00ff9d' : '#ffea00';
+                ctx.fill();
+                
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 11px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(n.c.participant_count || 0, n.x, n.y);
+                
+                ctx.fillStyle = '#888';
+                ctx.font = '10px Share Tech Mono';
+                ctx.fillText(n.c.title.slice(0, 20), n.x, n.y + size + 12);
+            });
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // UTILS
+        // ════════════════════════════════════════════════════════════════════════
+        function updateStats() {
+            document.getElementById('stat-cellules').textContent = S.cellules.length;
+            document.getElementById('stat-participants').textContent = S.cellules.reduce((s, c) => s + (c.participant_count || 0), 0);
+            document.getElementById('stat-ateliers').textContent = S.cellules.reduce((s, c) => s + (c.atelier_count || 0), 0);
+        }
+        
+        function updateUserUI() {
+            const btn = document.getElementById('btn-auth');
+            const display = document.getElementById('user-display');
+            
+            if (S.user) {
+                btn.textContent = 'Déconnexion';
+                display.textContent = S.user.email?.split('@')[0] || 'User';
+            } else {
+                btn.textContent = 'Connexion';
+                display.textContent = '';
+            }
+        }
+        
+        function saveLocal() {
+            localStorage.setItem(LOCAL_KEY, JSON.stringify({ cellules: S.cellules }));
+        }
+        
+        function toast(msg, isError = false) {
+            const el = document.getElementById('toast');
+            document.getElementById('toast-text').textContent = msg;
+            el.classList.toggle('error', isError);
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 3000);
+        }
+        
+        window.closeModal = function(id) {
+            document.getElementById(id).classList.add('hidden');
+        };
+        
+        function getThemeEmoji(t) {
+            const m = { mobilite:'🚲', environnement:'🌱', social:'🤝', numerique:'💻', culture:'🎭', economie:'💼', democratie:'🗳️', education:'📚', sante:'🏥' };
+            return m[t] || '📋';
+        }
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // AUTH
+        // ════════════════════════════════════════════════════════════════════════
+        document.querySelectorAll('.auth-tab').forEach(t => {
+            t.addEventListener('click', function() {
+                document.querySelectorAll('.auth-tab').forEach(x => x.classList.remove('active'));
+                document.querySelectorAll('#modal-auth .tab-content').forEach(x => x.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById('auth-' + this.dataset.tab).classList.add('active');
+            });
+        });
+        
+        document.getElementById('btn-login').addEventListener('click', async () => {
+            if (CONFIG.LOCAL_MODE) {
+                S.user = { email: 'demo@local' };
+                updateUserUI();
+                closeModal('modal-auth');
+                toast('Mode démo activé');
+                return;
+            }
+            
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            const { error } = await S.supabase.auth.signInWithPassword({ email, password });
+            if (error) toast(error.message, true);
+        });
+        
+        document.getElementById('btn-register').addEventListener('click', async () => {
+            if (CONFIG.LOCAL_MODE) {
+                toast('Mode local - pas d\'inscription');
+                return;
+            }
+            
+            const pseudo = document.getElementById('register-pseudo').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            
+            const { data, error } = await S.supabase.auth.signUp({ 
+                email, password,
+                options: { data: { pseudo } }
+            });
+            
+            if (error) {
+                toast(error.message, true);
+            } else {
+                toast('Vérifiez votre email !');
+            }
+        });
+        
+        document.getElementById('btn-auth').addEventListener('click', async () => {
+            if (S.user) {
+                if (CONFIG.LOCAL_MODE) {
+                    S.user = null;
+                    updateUserUI();
+                    toast('Déconnecté');
+                } else {
+                    await S.supabase.auth.signOut();
+                    toast('Déconnecté');
+                }
+            } else {
+                document.getElementById('modal-auth').classList.remove('hidden');
+            }
+        });
+        
+        // ════════════════════════════════════════════════════════════════════════
+        // EVENTS
+        // ════════════════════════════════════════════════════════════════════════
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                S.currentView = this.dataset.view;
+                
+                document.getElementById('graph-view').classList.toggle('active', S.currentView === 'graph');
+                
+                if (S.currentView === 'graph') {
+                    setTimeout(renderGraph, 50);
+                }
+            });
+        });
+        
+        document.getElementById('btn-locate').addEventListener('click', () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(p => {
+                    S.map.setView([p.coords.latitude, p.coords.longitude], 14);
+                    toast('Position trouvée');
+                });
+            }
+        });
+        
+        document.getElementById('btn-draw').addEventListener('click', function() {
+            this.classList.toggle('active');
+            if (this.classList.contains('active')) {
+                S.map.addControl(drawControl);
+            } else {
+                S.map.removeControl(drawControl);
+            }
+        });
+        
+        document.getElementById('btn-territories').addEventListener('click', function() {
+            S.showTerritories = !S.showTerritories;
+            this.classList.toggle('active', S.showTerritories);
+            
+            if (S.showTerritories) {
+                S.layers.territories.addTo(S.map);
+            } else {
+                S.map.removeLayer(S.layers.territories);
+            }
+            renderMap();
+        });
+        
+        document.getElementById('sidebar-close').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('open');
+        });
+        
+        window.addEventListener('resize', () => {
+            if (S.currentView === 'graph') renderGraph();
+        });
+        
+        // Make S accessible globally for onclick handlers
+        window.S = S;
+        window.selectCellule = selectCellule;
+    }
+    </script>
+</body>
+</html>
