@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ CELLULES CITOYENNES — Mode Autonome</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { --void:#000; --dark:#0a0a0f; --mid:#111; --green:#00ff9d; --blue:#00d4ff; --pink:#ff0080; --yellow:#ffea00; --red:#ff3366; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Share Tech Mono',monospace; background:var(--void); color:#fff; min-height:100vh; }
+        
+        .app { display:grid; grid-template-rows:50px 1fr; height:100vh; }
+        .main { display:grid; grid-template-columns:1fr 380px; }
+        @media(max-width:900px) { .main{grid-template-columns:1fr;} .sidebar{display:none;} }
+        
+        header { background:var(--dark); border-bottom:2px solid var(--green); display:flex; align-items:center; justify-content:space-between; padding:0 1rem; }
+        .logo { font-family:'Orbitron'; font-size:0.85rem; color:var(--green); text-shadow:0 0 10px var(--green); }
+        .mode-badge { font-size:0.6rem; padding:0.25rem 0.5rem; background:rgba(255,234,0,0.2); color:var(--yellow); border:1px solid var(--yellow); margin-left:0.5rem; }
+        .nav { display:flex; gap:0.25rem; }
+        .nav-btn { font-family:'Orbitron'; font-size:0.6rem; padding:0.5rem 0.75rem; background:none; border:1px solid #333; color:#666; cursor:pointer; }
+        .nav-btn:hover { border-color:var(--green); color:var(--green); }
+        .nav-btn.active { background:var(--green); color:#000; border-color:var(--green); }
+        .stats { display:flex; gap:1rem; }
+        .stat-val { font-family:'Orbitron'; font-size:0.9rem; color:var(--green); }
+        .stat-lbl { font-size:0.5rem; color:#444; }
+        
+        .map-wrap { position:relative; }
+        #map { width:100%; height:100%; }
+        .leaflet-container { background:#000; }
+        .leaflet-tile-pane { filter:saturate(0.1) brightness(0.25) contrast(1.5); }
+        
+        .map-ctrls { position:absolute; top:10px; left:10px; z-index:500; display:flex; flex-direction:column; gap:5px; }
+        .map-btn { width:34px; height:34px; background:var(--dark); border:1px solid var(--green); color:var(--green); cursor:pointer; font-size:0.9rem; }
+        .map-btn:hover,.map-btn.active { background:var(--green); color:#000; }
+        
+        .sidebar { background:var(--dark); border-left:1px solid #222; display:flex; flex-direction:column; overflow:hidden; }
+        .sidebar-header { padding:0.75rem; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; }
+        .sidebar-title { font-family:'Orbitron'; font-size:0.65rem; color:var(--blue); }
+        .sidebar-content { flex:1; overflow-y:auto; padding:0.75rem; }
+        
+        .section { background:var(--mid); border:1px solid #333; padding:0.75rem; margin-bottom:0.75rem; }
+        .section-title { font-family:'Orbitron'; font-size:0.6rem; color:var(--blue); margin-bottom:0.5rem; display:flex; align-items:center; gap:0.5rem; }
+        
+        .form-row { margin-bottom:0.5rem; }
+        .form-label { font-size:0.6rem; color:#666; margin-bottom:0.2rem; display:block; }
+        .form-input { width:100%; font-family:'Share Tech Mono'; font-size:0.8rem; padding:0.4rem; background:#000; border:1px solid #333; color:#fff; }
+        .form-input:focus { outline:none; border-color:var(--green); }
+        textarea.form-input { min-height:60px; resize:vertical; }
+        
+        .btn { font-family:'Orbitron'; font-size:0.6rem; padding:0.5rem 0.75rem; border:none; cursor:pointer; transition:all 0.15s; }
+        .btn-primary { background:var(--green); color:#000; }
+        .btn-primary:hover { box-shadow:0 0 15px var(--green); }
+        .btn-secondary { background:none; border:1px solid var(--blue); color:var(--blue); }
+        .btn-danger { background:none; border:1px solid var(--red); color:var(--red); }
+        .btn-warning { background:none; border:1px solid var(--yellow); color:var(--yellow); }
+        .btn-block { width:100%; }
+        .btn-sm { font-size:0.55rem; padding:0.35rem 0.5rem; }
+        .btn-group { display:flex; gap:0.5rem; flex-wrap:wrap; }
+        
+        .card { background:#0a0a0a; border:1px solid #333; padding:0.6rem; margin-bottom:0.5rem; cursor:pointer; }
+        .card:hover { border-color:var(--green); }
+        .card-title { font-family:'Orbitron'; font-size:0.75rem; color:var(--green); }
+        .card-meta { font-size:0.65rem; color:#666; margin-top:0.2rem; }
+        .card-badge { font-size:0.5rem; padding:0.1rem 0.3rem; display:inline-block; margin-top:0.3rem; }
+        .badge-recruiting { background:rgba(255,234,0,0.2); color:var(--yellow); border:1px solid var(--yellow); }
+        .badge-active { background:rgba(0,255,157,0.2); color:var(--green); border:1px solid var(--green); }
+        .badge-synced { background:rgba(0,212,255,0.2); color:var(--blue); border:1px solid var(--blue); }
+        
+        .progress { height:5px; background:#333; margin-top:0.4rem; }
+        .progress-fill { height:100%; background:linear-gradient(90deg,var(--green),var(--blue)); }
+        
+        .participant { display:flex; justify-content:space-between; padding:0.3rem 0; border-bottom:1px solid #222; font-size:0.75rem; }
+        .participant:last-child { border:none; }
+        
+        .sync-panel { background:linear-gradient(135deg,#111,#0a0a0a); border:1px solid var(--yellow); padding:1rem; margin-bottom:1rem; }
+        .sync-title { font-family:'Orbitron'; font-size:0.7rem; color:var(--yellow); margin-bottom:0.75rem; }
+        .sync-actions { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; }
+        
+        .qr-container { text-align:center; padding:1rem; background:#fff; margin:0.5rem 0; }
+        .qr-container canvas { max-width:200px !important; height:auto !important; }
+        
+        .import-zone { border:2px dashed #333; padding:1.5rem; text-align:center; margin:0.5rem 0; cursor:pointer; }
+        .import-zone:hover { border-color:var(--green); }
+        .import-zone.dragover { border-color:var(--green); background:rgba(0,255,157,0.1); }
+        
+        .federation-list { max-height:200px; overflow-y:auto; }
+        .federation-item { display:flex; justify-content:space-between; align-items:center; padding:0.4rem; border-bottom:1px solid #222; }
+        .federation-item:last-child { border:none; }
+        .fed-name { font-size:0.75rem; }
+        .fed-date { font-size:0.6rem; color:#666; }
+        
+        .atelier-timeline { margin:0.75rem 0; }
+        .timeline-item { display:flex; gap:0.5rem; padding:0.4rem 0; }
+        .timeline-dot { width:10px; height:10px; border-radius:50%; border:2px solid #333; flex-shrink:0; margin-top:3px; }
+        .timeline-dot.done { background:var(--green); border-color:var(--green); }
+        .timeline-dot.active { border-color:var(--yellow); }
+        .timeline-content { flex:1; }
+        .timeline-title { font-size:0.7rem; }
+        .timeline-date { font-size:0.6rem; color:#666; }
+        
+        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.95); display:flex; align-items:center; justify-content:center; z-index:2000; }
+        .modal-overlay.hidden { display:none; }
+        .modal { background:var(--dark); border:1px solid var(--green); width:90%; max-width:500px; max-height:90vh; overflow-y:auto; }
+        .modal-header { padding:0.75rem; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; }
+        .modal-title { font-family:'Orbitron'; font-size:0.8rem; color:var(--green); }
+        .modal-close { background:none; border:none; color:var(--pink); font-size:1.3rem; cursor:pointer; }
+        .modal-body { padding:1rem; }
+        .modal-footer { padding:0.75rem; border-top:1px solid #333; display:flex; gap:0.5rem; justify-content:flex-end; }
+        
+        .toast { position:fixed; bottom:-60px; left:50%; transform:translateX(-50%); background:var(--dark); border:1px solid var(--green); padding:0.6rem 1.2rem; z-index:3000; transition:bottom 0.3s; font-size:0.75rem; }
+        .toast.show { bottom:20px; }
+        .toast.error { border-color:var(--red); }
+        
+        .tabs { display:flex; border-bottom:1px solid #333; margin-bottom:0.75rem; }
+        .tab { flex:1; padding:0.5rem; background:none; border:none; color:#666; cursor:pointer; font-size:0.7rem; border-bottom:2px solid transparent; }
+        .tab.active { color:var(--green); border-bottom-color:var(--green); }
+        
+        .empty { text-align:center; padding:1.5rem; color:#444; font-size:0.8rem; }
+        
+        #graph-view { position:absolute; top:0; left:0; right:0; bottom:0; background:var(--dark); display:none; }
+        #graph-view.active { display:block; }
+        #graph-canvas { width:100%; height:100%; }
+        
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-track { background:#000; }
+        ::-webkit-scrollbar-thumb { background:var(--green); }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header>
+            <div style="display:flex;align-items:center;">
+                <span class="logo">⚡ CELLULES CITOYENNES</span>
+                <span class="mode-badge">MODE AUTONOME</span>
+            </div>
+            <nav class="nav">
+                <button class="nav-btn active" data-view="map">🗺️ Carte</button>
+                <button class="nav-btn" data-view="graph">🕸️ Maillage</button>
+                <button class="nav-btn" data-view="sync">🔄 Sync</button>
+            </nav>
+            <div class="stats">
+                <div><div class="stat-val" id="stat-cellules">0</div><div class="stat-lbl">Cellules</div></div>
+                <div><div class="stat-val" id="stat-participants">0</div><div class="stat-lbl">Citoyens</div></div>
+                <div><div class="stat-val" id="stat-federated">0</div><div class="stat-lbl">Fédérés</div></div>
+            </div>
+        </header>
+        
+        <div class="main">
+            <div class="map-wrap">
+                <div id="map"></div>
+                <div id="graph-view"><canvas id="graph-canvas"></canvas></div>
+                <div class="map-ctrls">
+                    <button class="map-btn" id="btn-locate" title="Ma position">◎</button>
+                    <button class="map-btn" id="btn-territories" title="Territoires">◇</button>
+                </div>
+            </div>
+            
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title" id="sidebar-title">CELLULES LOCALES</div>
+                    <button class="btn btn-primary btn-sm" id="btn-new">+ CRÉER</button>
+                </div>
+                <div class="sidebar-content" id="sidebar-content">
+                    <!-- Dynamic -->
+                </div>
+            </aside>
+        </div>
+    </div>
+    
+    <!-- Modal: Create Cellule -->
+    <div class="modal-overlay hidden" id="modal-create">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">NOUVELLE CELLULE</div>
+                <button class="modal-close" onclick="closeModal('modal-create')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row"><label class="form-label">Votre pseudo</label><input class="form-input" id="f-pseudo"></div>
+                <div class="form-row"><label class="form-label">Titre de la cellule</label><input class="form-input" id="f-title" placeholder="Ex: Veille mobilité Ixelles"></div>
+                <div class="form-row"><label class="form-label">Thématique</label>
+                    <select class="form-input" id="f-theme">
+                        <option value="">Choisir...</option>
+                        <option value="mobilite">🚲 Mobilité</option>
+                        <option value="environnement">🌱 Environnement</option>
+                        <option value="social">🤝 Social</option>
+                        <option value="numerique">💻 Numérique</option>
+                        <option value="culture">🎭 Culture</option>
+                        <option value="economie">💼 Économie</option>
+                        <option value="democratie">🗳️ Démocratie</option>
+                        <option value="education">📚 Éducation</option>
+                        <option value="sante">🏥 Santé</option>
+                    </select>
+                </div>
+                <div class="form-row"><label class="form-label">Description</label><textarea class="form-input" id="f-desc"></textarea></div>
+                <div class="form-row"><label class="form-label">Lien trace (publication)</label><input class="form-input" id="f-trace" placeholder="https://..."></div>
+                <div class="form-row"><label class="form-label">Rayon d'influence (km)</label><input type="number" class="form-input" id="f-radius" value="5" min="1" max="50"></div>
+                <div id="create-loc" style="margin-top:0.75rem;padding:0.5rem;background:#000;font-size:0.7rem;color:var(--green);"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('modal-create')">Annuler</button>
+                <button class="btn btn-primary" id="btn-create-ok">Créer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Export -->
+    <div class="modal-overlay hidden" id="modal-export">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">📤 EXPORTER</div>
+                <button class="modal-close" onclick="closeModal('modal-export')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="tabs">
+                    <button class="tab active" data-tab="export-file">Fichier JSON</button>
+                    <button class="tab" data-tab="export-qr">QR Code</button>
+                    <button class="tab" data-tab="export-text">Texte</button>
+                </div>
+                <div id="export-file" class="tab-content active">
+                    <p style="font-size:0.75rem;color:#888;margin-bottom:1rem;">Téléchargez vos données pour les partager ou sauvegarder.</p>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="exportJSON('all')">📦 Tout exporter</button>
+                        <button class="btn btn-secondary" onclick="exportJSON('cellules')">🏠 Cellules seules</button>
+                    </div>
+                </div>
+                <div id="export-qr" class="tab-content" style="display:none;">
+                    <p style="font-size:0.75rem;color:#888;margin-bottom:0.5rem;">Scannez ce QR pour importer sur un autre appareil.</p>
+                    <div class="qr-container" id="qr-output"></div>
+                    <p style="font-size:0.6rem;color:#555;text-align:center;">Sélectionnez une cellule spécifique pour un QR plus petit</p>
+                </div>
+                <div id="export-text" class="tab-content" style="display:none;">
+                    <p style="font-size:0.75rem;color:#888;margin-bottom:0.5rem;">Copiez ce texte pour le partager (email, chat, etc.)</p>
+                    <textarea class="form-input" id="export-textarea" style="min-height:150px;font-size:0.65rem;" readonly></textarea>
+                    <button class="btn btn-secondary btn-block" style="margin-top:0.5rem;" onclick="copyExport()">📋 Copier</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Import -->
+    <div class="modal-overlay hidden" id="modal-import">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">📥 IMPORTER</div>
+                <button class="modal-close" onclick="closeModal('modal-import')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="tabs">
+                    <button class="tab active" data-tab="import-file">Fichier</button>
+                    <button class="tab" data-tab="import-text">Texte</button>
+                    <button class="tab" data-tab="import-url">URL</button>
+                </div>
+                <div id="import-file" class="tab-content active">
+                    <div class="import-zone" id="drop-zone">
+                        <div style="font-size:2rem;margin-bottom:0.5rem;">📁</div>
+                        <div>Glissez un fichier JSON ici</div>
+                        <div style="font-size:0.7rem;color:#666;margin-top:0.5rem;">ou cliquez pour sélectionner</div>
+                        <input type="file" id="file-input" accept=".json" style="display:none;">
+                    </div>
+                </div>
+                <div id="import-text" class="tab-content" style="display:none;">
+                    <textarea class="form-input" id="import-textarea" placeholder="Collez les données JSON ici..." style="min-height:150px;"></textarea>
+                    <button class="btn btn-primary btn-block" style="margin-top:0.5rem;" onclick="importFromText()">Importer</button>
+                </div>
+                <div id="import-url" class="tab-content" style="display:none;">
+                    <p style="font-size:0.75rem;color:#888;margin-bottom:0.5rem;">Entrez l'URL d'un fichier JSON partagé</p>
+                    <input class="form-input" id="import-url-input" placeholder="https://...">
+                    <button class="btn btn-primary btn-block" style="margin-top:0.5rem;" onclick="importFromURL()">Charger</button>
+                </div>
+                <div id="import-preview" style="display:none;margin-top:1rem;">
+                    <div class="section-title">📋 Aperçu</div>
+                    <div id="preview-content"></div>
+                    <div class="btn-group" style="margin-top:0.75rem;">
+                        <button class="btn btn-secondary" onclick="cancelImport()">Annuler</button>
+                        <button class="btn btn-primary" onclick="confirmImport()">✓ Fusionner</button>
+                        <button class="btn btn-warning" onclick="confirmImport(true)">⚠ Remplacer tout</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Sync Panel (full) -->
+    <div class="modal-overlay hidden" id="modal-sync">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <div class="modal-title">🔄 SYNCHRONISATION P2P</div>
+                <button class="modal-close" onclick="closeModal('modal-sync')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="section">
+                    <div class="section-title">📡 PROTOCOLE DE FÉDÉRATION</div>
+                    <p style="font-size:0.7rem;color:#888;margin-bottom:0.75rem;">
+                        Chaque instance est autonome. Synchronisez manuellement avec d'autres utilisateurs via :
+                    </p>
+                    <ul style="font-size:0.7rem;color:#666;margin-left:1rem;line-height:1.6;">
+                        <li><strong>Export/Import JSON</strong> — fichiers à échanger</li>
+                        <li><strong>QR Code</strong> — scan entre appareils</li>
+                        <li><strong>Copier/Coller</strong> — via chat, email, etc.</li>
+                        <li><strong>URL partagée</strong> — hébergez votre JSON quelque part</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">📊 MON INSTANCE</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;text-align:center;">
+                        <div style="background:#000;padding:0.5rem;">
+                            <div style="font-family:Orbitron;color:var(--green);font-size:1.2rem;" id="sync-my-cellules">0</div>
+                            <div style="font-size:0.6rem;color:#666;">Cellules</div>
+                        </div>
+                        <div style="background:#000;padding:0.5rem;">
+                            <div style="font-family:Orbitron;color:var(--blue);font-size:1.2rem;" id="sync-my-participants">0</div>
+                            <div style="font-size:0.6rem;color:#666;">Participants</div>
+                        </div>
+                        <div style="background:#000;padding:0.5rem;">
+                            <div style="font-family:Orbitron;color:var(--yellow);font-size:1.2rem;" id="sync-my-ateliers">0</div>
+                            <div style="font-size:0.6rem;color:#666;">Ateliers</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">🤝 SOURCES FÉDÉRÉES</div>
+                    <div class="federation-list" id="federation-list">
+                        <div class="empty">Aucune source importée</div>
+                    </div>
+                </div>
+                
+                <div class="btn-group" style="justify-content:center;">
+                    <button class="btn btn-primary" onclick="closeModal('modal-sync');document.getElementById('modal-export').classList.remove('hidden');">📤 Exporter</button>
+                    <button class="btn btn-secondary" onclick="closeModal('modal-sync');document.getElementById('modal-import').classList.remove('hidden');">📥 Importer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+    (function waitLibs() {
+        if (typeof L === 'undefined') { setTimeout(waitLibs, 50); return; }
+        initApp();
+    })();
+    
+    function initApp() {
+        // ════════════════════════════════════════════════════════════════════
+        // STATE
+        // ════════════════════════════════════════════════════════════════════
+        const DB_KEY = 'cellules_autonome_v1';
+        const S = {
+            instanceId: localStorage.getItem('instance_id') || generateId(),
+            map: null,
+            nodes: [],
+            data: loadData(),
+            selectedNode: null,
+            selectedCellule: null,
+            currentView: 'map',
+            showTerritories: false,
+            pendingImport: null
+        };
+        
+        localStorage.setItem('instance_id', S.instanceId);
+        
+        // ════════════════════════════════════════════════════════════════════
+        // DATA STRUCTURE
+        // ════════════════════════════════════════════════════════════════════
+        function loadData() {
+            const saved = localStorage.getItem(DB_KEY);
+            if (saved) return JSON.parse(saved);
+            return {
+                cellules: [],
+                ateliers: [],
+                contributions: [],
+                federatedSources: [], // { id, name, importedAt, celluleCount }
+                meta: { created: new Date().toISOString(), lastModified: new Date().toISOString() }
+            };
+        }
+        
+        function saveData() {
+            S.data.meta.lastModified = new Date().toISOString();
+            localStorage.setItem(DB_KEY, JSON.stringify(S.data));
+        }
+        
+        function generateId() {
+            return 'C' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // GENERATE GRID
+        // ════════════════════════════════════════════════════════════════════
+        function generateNodes() {
+            S.nodes = [];
+            let id = 0;
+            
+            // Brussels dense
+            for (let lat = 50.78; lat <= 50.90; lat += 0.01) {
+                for (let lon = 4.28; lon <= 4.48; lon += 0.01) {
+                    S.nodes.push({ id: 'B' + (id++), lat, lon, zone: 'bxl' });
+                }
+            }
+            
+            // Wallonia full
+            for (let lat = 49.55; lat <= 50.75; lat += 0.04) {
+                for (let lon = 2.85; lon <= 6.35; lon += 0.04) {
+                    S.nodes.push({ id: 'W' + (id++), lat, lon, zone: 'wal' });
+                }
+            }
+        }
+        generateNodes();
+        
+        // ════════════════════════════════════════════════════════════════════
+        // MAP
+        // ════════════════════════════════════════════════════════════════════
+        S.map = L.map('map', { center: [50.5, 4.5], zoom: 8, preferCanvas: true });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(S.map);
+        
+        const layers = { nodes: L.layerGroup().addTo(S.map), cellules: L.layerGroup().addTo(S.map), territories: L.layerGroup() };
+        
+        function renderMap() {
+            layers.nodes.clearLayers();
+            layers.cellules.clearLayers();
+            layers.territories.clearLayers();
+            
+            const celluleNodes = new Set(S.data.cellules.map(c => c.nodeId));
+            
+            // Nodes
+            S.nodes.forEach(n => {
+                if (celluleNodes.has(n.id)) return;
+                const color = n.zone === 'bxl' ? '#003b7a' : '#e30613';
+                L.circleMarker([n.lat, n.lon], { radius: 3, color, fillColor: color, fillOpacity: 0.4, weight: 1 })
+                    .on('click', () => selectNode(n))
+                    .addTo(layers.nodes);
+            });
+            
+            // Cellules
+            S.data.cellules.forEach(c => {
+                const ready = c.participants.length >= (c.minParticipants || 5);
+                const hasAtelier = S.data.ateliers.some(a => a.celluleId === c.id);
+                let color = '#ffea00';
+                if (ready) color = '#00ff9d';
+                if (hasAtelier) color = '#00d4ff';
+                
+                const size = 6 + c.participants.length * 2;
+                
+                L.circleMarker([c.lat, c.lon], { radius: size, color, fillColor: color, fillOpacity: 0.8, weight: 2 })
+                    .on('click', () => selectCellule(c))
+                    .bindTooltip(c.title)
+                    .addTo(layers.cellules);
+                
+                if (S.showTerritories && c.radius) {
+                    L.circle([c.lat, c.lon], { radius: c.radius * 1000, color, fillOpacity: 0.08, weight: 1 })
+                        .addTo(layers.territories);
+                }
+            });
+            
+            // Links
+            const ready = S.data.cellules.filter(c => c.participants.length >= 5);
+            ready.forEach((a, i) => {
+                ready.slice(i + 1).forEach(b => {
+                    const d = dist(a.lat, a.lon, b.lat, b.lon);
+                    if (d <= 15) {
+                        L.polyline([[a.lat, a.lon], [b.lat, b.lon]], { color: '#00d4ff', weight: 1, opacity: 0.25, dashArray: '4,8' })
+                            .addTo(layers.cellules);
+                    }
+                });
+            });
+        }
+        
+        function dist(lat1, lon1, lat2, lon2) {
+            const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // SELECT NODE / CELLULE
+        // ════════════════════════════════════════════════════════════════════
+        function selectNode(node) {
+            S.selectedNode = node;
+            S.selectedCellule = null;
+            document.getElementById('sidebar-title').textContent = 'NOUVEAU SPOT';
+            document.getElementById('sidebar-content').innerHTML = `
+                <div class="section">
+                    <div class="section-title">📍 POSITION</div>
+                    <div style="color:var(--green);font-family:Orbitron;">${node.zone === 'bxl' ? 'Bruxelles' : 'Wallonie'}</div>
+                    <div style="font-size:0.7rem;color:#666;">${node.lat.toFixed(4)}, ${node.lon.toFixed(4)}</div>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="openCreateModal()">+ Créer une cellule ici</button>
+            `;
+            S.map.setView([node.lat, node.lon], 13);
+        }
+        
+        function selectCellule(c) {
+            S.selectedCellule = c;
+            S.selectedNode = null;
+            renderCelluleDetail(c);
+            S.map.setView([c.lat, c.lon], 13);
+        }
+        
+        function renderCelluleDetail(c) {
+            document.getElementById('sidebar-title').textContent = 'CELLULE';
+            const pct = (c.participants.length / (c.maxParticipants || 9)) * 100;
+            const ready = c.participants.length >= (c.minParticipants || 5);
+            const atelier = S.data.ateliers.find(a => a.celluleId === c.id);
+            
+            let html = `
+                <div class="section">
+                    <div class="card-title" style="font-size:1rem;">${c.title}</div>
+                    <span class="card-badge ${ready ? 'badge-active' : 'badge-recruiting'}">${ready ? 'ACTIVE' : 'RECRUTEMENT'}</span>
+                    ${c.federated ? '<span class="card-badge badge-synced" style="margin-left:0.25rem;">FÉDÉRÉ</span>' : ''}
+                    <div class="card-meta" style="margin-top:0.5rem;">${getEmoji(c.theme)} ${c.theme || ''} • ${c.creator}</div>
+                    <p style="font-size:0.75rem;color:#666;margin:0.5rem 0;">${c.description || ''}</p>
+                    ${c.traceUrl ? `<a href="${c.traceUrl}" target="_blank" style="color:var(--blue);font-size:0.7rem;">→ Voir la trace</a>` : ''}
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">👥 PARTICIPANTS (${c.participants.length}/${c.maxParticipants || 9})</div>
+                    <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
+                    <div style="margin-top:0.5rem;">
+                        ${c.participants.map((p, i) => `
+                            <div class="participant">
+                                <span style="color:${i===0?'var(--green)':'#888'}">${i===0?'👑 ':''}${p.name}</span>
+                                ${i > 0 && !c.federated ? `<button class="btn btn-danger btn-sm" onclick="removeParticipant('${c.id}',${i})">×</button>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${c.participants.length < (c.maxParticipants || 9) ? `
+                        <button class="btn btn-secondary btn-block" style="margin-top:0.5rem;" onclick="addParticipant('${c.id}')">+ Rejoindre</button>
+                    ` : ''}
+                </div>
+            `;
+            
+            if (ready) {
+                html += `
+                    <div class="section">
+                        <div class="section-title">📋 ATELIER</div>
+                        ${atelier ? `
+                            <div class="atelier-timeline">
+                                <div class="timeline-item">
+                                    <div class="timeline-dot ${atelier.status !== 'planned' ? 'done' : 'active'}"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">Phase async (14j)</div>
+                                        <div class="timeline-date">${atelier.asyncStart ? new Date(atelier.asyncStart).toLocaleDateString() : 'À planifier'}</div>
+                                    </div>
+                                </div>
+                                <div class="timeline-item">
+                                    <div class="timeline-dot ${atelier.status === 'live' || atelier.status === 'completed' ? 'done' : ''}"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">Live 48h</div>
+                                        <div class="timeline-date">${atelier.liveStart ? new Date(atelier.liveStart).toLocaleDateString() : 'À venir'}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <label class="form-label">Liens plateformes</label>
+                                <input class="form-input" placeholder="Visio, chat, pad..." value="${atelier.platforms || ''}" onchange="updateAtelier('${atelier.id}','platforms',this.value)">
+                            </div>
+                        ` : `
+                            <div class="empty">Quorum atteint !</div>
+                            <button class="btn btn-primary btn-block" onclick="startAtelier('${c.id}')">🚀 Lancer l'atelier</button>
+                        `}
+                    </div>
+                `;
+            }
+            
+            // Matches
+            const matches = S.data.cellules
+                .filter(x => x.id !== c.id && x.participants.length >= 5)
+                .map(x => ({ ...x, d: dist(c.lat, c.lon, x.lat, x.lon) }))
+                .filter(x => x.d <= 15)
+                .sort((a, b) => a.d - b.d)
+                .slice(0, 5);
+            
+            if (matches.length > 0) {
+                html += `
+                    <div class="section">
+                        <div class="section-title">🔗 MATCHES</div>
+                        ${matches.map(m => `
+                            <div class="card" onclick="selectCellule(S.data.cellules.find(c=>c.id==='${m.id}'))">
+                                <div class="card-title">${m.title}</div>
+                                <div class="card-meta">${m.d.toFixed(1)} km • ${m.participants.length} participants</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            // Export this cellule
+            html += `
+                <div class="section">
+                    <div class="section-title">📤 PARTAGER CETTE CELLULE</div>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary btn-sm" onclick="exportCellule('${c.id}')">JSON</button>
+                        <button class="btn btn-secondary btn-sm" onclick="exportCelluleQR('${c.id}')">QR</button>
+                        <button class="btn btn-secondary btn-sm" onclick="copyCelluleLink('${c.id}')">📋 Copier</button>
+                    </div>
+                </div>
+            `;
+            
+            if (!c.federated) {
+                html += `
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="renderList()">← Retour</button>
+                        <button class="btn btn-danger" onclick="deleteCellule('${c.id}')">🗑️</button>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('sidebar-content').innerHTML = html;
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // CRUD
+        // ════════════════════════════════════════════════════════════════════
+        window.openCreateModal = function() {
+            if (!S.selectedNode) { toast('Sélectionnez un nœud', true); return; }
+            document.getElementById('create-loc').innerHTML = `📍 ${S.selectedNode.lat.toFixed(4)}, ${S.selectedNode.lon.toFixed(4)}`;
+            document.getElementById('modal-create').classList.remove('hidden');
+        };
+        
+        document.getElementById('btn-create-ok').addEventListener('click', () => {
+            const pseudo = document.getElementById('f-pseudo').value.trim();
+            const title = document.getElementById('f-title').value.trim();
+            const theme = document.getElementById('f-theme').value;
+            const desc = document.getElementById('f-desc').value.trim();
+            const trace = document.getElementById('f-trace').value.trim();
+            const radius = parseFloat(document.getElementById('f-radius').value) || 5;
+            
+            if (!pseudo) { toast('Pseudo requis', true); return; }
+            if (!title) { toast('Titre requis', true); return; }
+            
+            const cellule = {
+                id: generateId(),
+                nodeId: S.selectedNode.id,
+                lat: S.selectedNode.lat,
+                lon: S.selectedNode.lon,
+                zone: S.selectedNode.zone,
+                title, theme, description: desc, traceUrl: trace,
+                radius,
+                minParticipants: 5,
+                maxParticipants: 9,
+                creator: pseudo,
+                participants: [{ name: pseudo, role: 'creator', joinedAt: new Date().toISOString() }],
+                createdAt: new Date().toISOString(),
+                instanceId: S.instanceId
+            };
+            
+            S.data.cellules.push(cellule);
+            saveData();
+            closeModal('modal-create');
+            renderMap();
+            renderList();
+            updateStats();
+            toast('Cellule créée !');
+        });
+        
+        window.addParticipant = function(celluleId) {
+            const name = prompt('Votre pseudo :');
+            if (!name) return;
+            
+            const c = S.data.cellules.find(x => x.id === celluleId);
+            if (!c) return;
+            
+            if (c.participants.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+                toast('Pseudo déjà pris', true);
+                return;
+            }
+            
+            c.participants.push({ name, role: 'member', joinedAt: new Date().toISOString() });
+            saveData();
+            renderMap();
+            renderCelluleDetail(c);
+            updateStats();
+            toast(c.participants.length >= c.minParticipants ? '🎉 Quorum atteint !' : 'Ajouté !');
+        };
+        
+        window.removeParticipant = function(celluleId, index) {
+            const c = S.data.cellules.find(x => x.id === celluleId);
+            if (!c || index === 0) return;
+            c.participants.splice(index, 1);
+            saveData();
+            renderCelluleDetail(c);
+            renderMap();
+            updateStats();
+            toast('Retiré');
+        };
+        
+        window.deleteCellule = function(id) {
+            if (!confirm('Supprimer cette cellule ?')) return;
+            S.data.cellules = S.data.cellules.filter(c => c.id !== id);
+            S.data.ateliers = S.data.ateliers.filter(a => a.celluleId !== id);
+            saveData();
+            renderMap();
+            renderList();
+            updateStats();
+            toast('Supprimé');
+        };
+        
+        window.startAtelier = function(celluleId) {
+            const now = new Date();
+            const asyncEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+            const liveStart = asyncEnd;
+            const liveEnd = new Date(liveStart.getTime() + 48 * 60 * 60 * 1000);
+            
+            const atelier = {
+                id: generateId(),
+                celluleId,
+                title: 'Atelier ' + now.toLocaleDateString(),
+                status: 'async',
+                asyncStart: now.toISOString(),
+                asyncEnd: asyncEnd.toISOString(),
+                liveStart: liveStart.toISOString(),
+                liveEnd: liveEnd.toISOString(),
+                platforms: '',
+                outcomes: [],
+                createdAt: now.toISOString()
+            };
+            
+            S.data.ateliers.push(atelier);
+            saveData();
+            
+            const c = S.data.cellules.find(x => x.id === celluleId);
+            if (c) renderCelluleDetail(c);
+            updateStats();
+            toast('🚀 Atelier lancé ! Phase async de 14 jours');
+        };
+        
+        window.updateAtelier = function(id, field, value) {
+            const a = S.data.ateliers.find(x => x.id === id);
+            if (a) {
+                a[field] = value;
+                saveData();
+            }
+        };
+        
+        // ════════════════════════════════════════════════════════════════════
+        // EXPORT
+        // ════════════════════════════════════════════════════════════════════
+        window.exportJSON = function(type) {
+            let data;
+            let filename;
+            
+            if (type === 'all') {
+                data = {
+                    version: '1.0',
+                    instanceId: S.instanceId,
+                    exportedAt: new Date().toISOString(),
+                    ...S.data
+                };
+                filename = `cellules_${S.instanceId}_${Date.now()}.json`;
+            } else {
+                data = {
+                    version: '1.0',
+                    instanceId: S.instanceId,
+                    exportedAt: new Date().toISOString(),
+                    cellules: S.data.cellules.filter(c => !c.federated)
+                };
+                filename = `cellules_local_${Date.now()}.json`;
+            }
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast('Exporté !');
+        };
+        
+        window.exportCellule = function(id) {
+            const c = S.data.cellules.find(x => x.id === id);
+            if (!c) return;
+            
+            const data = {
+                version: '1.0',
+                type: 'single',
+                exportedAt: new Date().toISOString(),
+                cellule: c,
+                ateliers: S.data.ateliers.filter(a => a.celluleId === id)
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cellule_${c.title.replace(/\s+/g, '_')}_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast('Cellule exportée !');
+        };
+        
+        window.exportCelluleQR = function(id) {
+            const c = S.data.cellules.find(x => x.id === id);
+            if (!c) return;
+            
+            // Compact format for QR
+            const data = {
+                v: 1,
+                c: {
+                    i: c.id, t: c.title, th: c.theme,
+                    la: c.lat, lo: c.lon,
+                    cr: c.creator, p: c.participants.length
+                }
+            };
+            
+            const json = JSON.stringify(data);
+            document.getElementById('qr-output').innerHTML = '';
+            
+            if (typeof QRCode !== 'undefined') {
+                QRCode.toCanvas(json, { width: 200, margin: 2 }, (err, canvas) => {
+                    if (!err) document.getElementById('qr-output').appendChild(canvas);
+                });
+            }
+            
+            document.querySelectorAll('#modal-export .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#modal-export .tab-content').forEach(t => t.style.display = 'none');
+            document.querySelector('#modal-export .tab[data-tab="export-qr"]').classList.add('active');
+            document.getElementById('export-qr').style.display = 'block';
+            document.getElementById('modal-export').classList.remove('hidden');
+        };
+        
+        window.copyCelluleLink = function(id) {
+            const c = S.data.cellules.find(x => x.id === id);
+            if (!c) return;
+            
+            const data = JSON.stringify({ version: '1.0', type: 'single', cellule: c });
+            navigator.clipboard.writeText(data).then(() => toast('Copié !'));
+        };
+        
+        window.copyExport = function() {
+            const text = document.getElementById('export-textarea').value;
+            navigator.clipboard.writeText(text).then(() => toast('Copié !'));
+        };
+        
+        // Export tabs
+        document.querySelectorAll('#modal-export .tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('#modal-export .tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('#modal-export .tab-content').forEach(t => t.style.display = 'none');
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab).style.display = 'block';
+                
+                if (this.dataset.tab === 'export-text') {
+                    document.getElementById('export-textarea').value = JSON.stringify(S.data, null, 2);
+                }
+                if (this.dataset.tab === 'export-qr' && typeof QRCode !== 'undefined') {
+                    const compact = { v: 1, i: S.instanceId, n: S.data.cellules.length };
+                    document.getElementById('qr-output').innerHTML = '';
+                    QRCode.toCanvas(JSON.stringify(compact), { width: 200 }, (err, canvas) => {
+                        if (!err) document.getElementById('qr-output').appendChild(canvas);
+                    });
+                }
+            });
+        });
+        
+        // ════════════════════════════════════════════════════════════════════
+        // IMPORT
+        // ════════════════════════════════════════════════════════════════════
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+        
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = e => processImport(e.target.result);
+            reader.readAsText(file);
+        }
+        
+        window.importFromText = function() {
+            const text = document.getElementById('import-textarea').value;
+            if (!text.trim()) { toast('Collez des données', true); return; }
+            processImport(text);
+        };
+        
+        window.importFromURL = async function() {
+            const url = document.getElementById('import-url-input').value;
+            if (!url) { toast('URL requise', true); return; }
+            try {
+                const res = await fetch(url);
+                const text = await res.text();
+                processImport(text);
+            } catch (err) {
+                toast('Erreur: ' + err.message, true);
+            }
+        };
+        
+        function processImport(text) {
+            try {
+                const data = JSON.parse(text);
+                S.pendingImport = data;
+                
+                // Preview
+                let preview = '';
+                if (data.cellule) {
+                    // Single cellule
+                    preview = `<div class="card"><div class="card-title">${data.cellule.title}</div><div class="card-meta">${data.cellule.participants?.length || 0} participants</div></div>`;
+                } else if (data.cellules) {
+                    // Multiple
+                    preview = `<div style="font-size:0.8rem;color:var(--green);">${data.cellules.length} cellule(s)</div>`;
+                    data.cellules.slice(0, 5).forEach(c => {
+                        preview += `<div class="card"><div class="card-title">${c.title}</div><div class="card-meta">${c.participants?.length || 0} participants</div></div>`;
+                    });
+                    if (data.cellules.length > 5) preview += `<div style="color:#666;font-size:0.7rem;">+ ${data.cellules.length - 5} autres...</div>`;
+                }
+                
+                document.getElementById('preview-content').innerHTML = preview;
+                document.getElementById('import-preview').style.display = 'block';
+                
+            } catch (err) {
+                toast('JSON invalide: ' + err.message, true);
+            }
+        }
+        
+        window.cancelImport = function() {
+            S.pendingImport = null;
+            document.getElementById('import-preview').style.display = 'none';
+        };
+        
+        window.confirmImport = function(replace = false) {
+            if (!S.pendingImport) return;
+            
+            const data = S.pendingImport;
+            const sourceId = data.instanceId || 'unknown_' + Date.now();
+            
+            if (replace) {
+                S.data.cellules = [];
+                S.data.ateliers = [];
+            }
+            
+            // Import cellules
+            const toImport = data.cellule ? [data.cellule] : (data.cellules || []);
+            let imported = 0;
+            
+            toImport.forEach(c => {
+                // Check if already exists
+                if (S.data.cellules.some(x => x.id === c.id)) {
+                    // Update if more recent
+                    const existing = S.data.cellules.find(x => x.id === c.id);
+                    if (c.participants.length > existing.participants.length) {
+                        Object.assign(existing, c, { federated: true, federatedFrom: sourceId });
+                    }
+                } else {
+                    S.data.cellules.push({ ...c, federated: true, federatedFrom: sourceId });
+                    imported++;
+                }
+            });
+            
+            // Import ateliers
+            if (data.ateliers) {
+                data.ateliers.forEach(a => {
+                    if (!S.data.ateliers.some(x => x.id === a.id)) {
+                        S.data.ateliers.push(a);
+                    }
+                });
+            }
+            
+            // Track federated source
+            if (!S.data.federatedSources.some(s => s.id === sourceId)) {
+                S.data.federatedSources.push({
+                    id: sourceId,
+                    name: sourceId,
+                    importedAt: new Date().toISOString(),
+                    celluleCount: toImport.length
+                });
+            }
+            
+            saveData();
+            S.pendingImport = null;
+            
+            closeModal('modal-import');
+            document.getElementById('import-preview').style.display = 'none';
+            
+            renderMap();
+            renderList();
+            updateStats();
+            updateFederationList();
+            
+            toast(`${imported} cellule(s) importée(s) !`);
+        };
+        
+        // Import tabs
+        document.querySelectorAll('#modal-import .tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('#modal-import .tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('#modal-import .tab-content').forEach(t => t.style.display = 'none');
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab).style.display = 'block';
+            });
+        });
+        
+        // ════════════════════════════════════════════════════════════════════
+        // SIDEBAR LIST
+        // ════════════════════════════════════════════════════════════════════
+        function renderList() {
+            document.getElementById('sidebar-title').textContent = 'CELLULES';
+            S.selectedCellule = null;
+            
+            let html = `
+                <div class="sync-panel">
+                    <div class="sync-title">🔄 SYNCHRONISATION</div>
+                    <div class="sync-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-export').classList.remove('hidden')">📤 Exporter</button>
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-import').classList.remove('hidden')">📥 Importer</button>
+                    </div>
+                </div>
+            `;
+            
+            const local = S.data.cellules.filter(c => !c.federated);
+            const federated = S.data.cellules.filter(c => c.federated);
+            
+            if (local.length > 0) {
+                html += '<div class="section-title">🏠 MES CELLULES</div>';
+                local.forEach(c => {
+                    const ready = c.participants.length >= (c.minParticipants || 5);
+                    html += `
+                        <div class="card" onclick="selectCellule(S.data.cellules.find(x=>x.id==='${c.id}'))">
+                            <div class="card-title">${c.title}</div>
+                            <div class="card-meta">${getEmoji(c.theme)} ${c.theme || ''} • ${c.participants.length}/${c.maxParticipants || 9}</div>
+                            <span class="card-badge ${ready ? 'badge-active' : 'badge-recruiting'}">${ready ? 'ACTIVE' : 'RECRUTEMENT'}</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (federated.length > 0) {
+                html += '<div class="section-title" style="margin-top:1rem;">🌐 CELLULES FÉDÉRÉES</div>';
+                federated.forEach(c => {
+                    const ready = c.participants.length >= (c.minParticipants || 5);
+                    html += `
+                        <div class="card" onclick="selectCellule(S.data.cellules.find(x=>x.id==='${c.id}'))">
+                            <div class="card-title">${c.title}</div>
+                            <div class="card-meta">${getEmoji(c.theme)} ${c.theme || ''} • ${c.participants.length}/${c.maxParticipants || 9}</div>
+                            <span class="card-badge ${ready ? 'badge-active' : 'badge-recruiting'}">${ready ? 'ACTIVE' : 'RECRUTEMENT'}</span>
+                            <span class="card-badge badge-synced" style="margin-left:0.25rem;">FÉDÉRÉ</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (S.data.cellules.length === 0) {
+                html += '<div class="empty">Aucune cellule<br>Cliquez sur un nœud ou importez des données</div>';
+            }
+            
+            document.getElementById('sidebar-content').innerHTML = html;
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // GRAPH
+        // ════════════════════════════════════════════════════════════════════
+        function renderGraph() {
+            const canvas = document.getElementById('graph-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (S.data.cellules.length === 0) {
+                ctx.fillStyle = '#444';
+                ctx.font = '14px Share Tech Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText('Aucune cellule', canvas.width/2, canvas.height/2);
+                return;
+            }
+            
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            const r = Math.min(cx, cy) * 0.7;
+            
+            const nodes = S.data.cellules.map((c, i) => ({
+                c,
+                x: cx + Math.cos(i / S.data.cellules.length * Math.PI * 2 - Math.PI/2) * r,
+                y: cy + Math.sin(i / S.data.cellules.length * Math.PI * 2 - Math.PI/2) * r
+            }));
+            
+            // Links
+            ctx.strokeStyle = '#00d4ff';
+            ctx.lineWidth = 1;
+            nodes.forEach((a, i) => {
+                nodes.slice(i+1).forEach(b => {
+                    if (a.c.participants.length >= 5 && b.c.participants.length >= 5) {
+                        const d = dist(a.c.lat, a.c.lon, b.c.lat, b.c.lon);
+                        if (d <= 15) {
+                            ctx.globalAlpha = 0.25;
+                            ctx.beginPath();
+                            ctx.moveTo(a.x, a.y);
+                            ctx.lineTo(b.x, b.y);
+                            ctx.stroke();
+                        }
+                    }
+                });
+            });
+            ctx.globalAlpha = 1;
+            
+            // Nodes
+            nodes.forEach(n => {
+                const ready = n.c.participants.length >= 5;
+                const fed = n.c.federated;
+                const size = 12 + n.c.participants.length * 2;
+                
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, size, 0, Math.PI*2);
+                ctx.fillStyle = fed ? '#00d4ff' : (ready ? '#00ff9d' : '#ffea00');
+                ctx.fill();
+                
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 10px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(n.c.participants.length, n.x, n.y);
+                
+                ctx.fillStyle = '#666';
+                ctx.font = '9px Share Tech Mono';
+                ctx.fillText(n.c.title.slice(0, 15), n.x, n.y + size + 10);
+            });
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // UTILS
+        // ════════════════════════════════════════════════════════════════════
+        function updateStats() {
+            document.getElementById('stat-cellules').textContent = S.data.cellules.filter(c => !c.federated).length;
+            document.getElementById('stat-participants').textContent = S.data.cellules.reduce((s, c) => s + c.participants.length, 0);
+            document.getElementById('stat-federated').textContent = S.data.cellules.filter(c => c.federated).length;
+        }
+        
+        function updateFederationList() {
+            const list = document.getElementById('federation-list');
+            if (S.data.federatedSources.length === 0) {
+                list.innerHTML = '<div class="empty">Aucune source importée</div>';
+            } else {
+                list.innerHTML = S.data.federatedSources.map(s => `
+                    <div class="federation-item">
+                        <div>
+                            <div class="fed-name">${s.name}</div>
+                            <div class="fed-date">${s.celluleCount} cellules • ${new Date(s.importedAt).toLocaleDateString()}</div>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="removeFederated('${s.id}')">×</button>
+                    </div>
+                `).join('');
+            }
+            
+            document.getElementById('sync-my-cellules').textContent = S.data.cellules.filter(c => !c.federated).length;
+            document.getElementById('sync-my-participants').textContent = S.data.cellules.filter(c => !c.federated).reduce((s, c) => s + c.participants.length, 0);
+            document.getElementById('sync-my-ateliers').textContent = S.data.ateliers.length;
+        }
+        
+        window.removeFederated = function(sourceId) {
+            S.data.cellules = S.data.cellules.filter(c => c.federatedFrom !== sourceId);
+            S.data.federatedSources = S.data.federatedSources.filter(s => s.id !== sourceId);
+            saveData();
+            renderMap();
+            renderList();
+            updateStats();
+            updateFederationList();
+            toast('Source retirée');
+        };
+        
+        function toast(msg, error = false) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.toggle('error', error);
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 3000);
+        }
+        
+        window.closeModal = function(id) {
+            document.getElementById(id).classList.add('hidden');
+        };
+        
+        function getEmoji(t) {
+            const m = { mobilite:'🚲', environnement:'🌱', social:'🤝', numerique:'💻', culture:'🎭', economie:'💼', democratie:'🗳️', education:'📚', sante:'🏥' };
+            return m[t] || '📋';
+        }
+        
+        // Make S global
+        window.S = S;
+        window.selectCellule = selectCellule;
+        
+        // ════════════════════════════════════════════════════════════════════
+        // EVENTS
+        // ════════════════════════════════════════════════════════════════════
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                S.currentView = this.dataset.view;
+                
+                document.getElementById('graph-view').classList.toggle('active', S.currentView === 'graph');
+                
+                if (S.currentView === 'graph') setTimeout(renderGraph, 50);
+                if (S.currentView === 'sync') document.getElementById('modal-sync').classList.remove('hidden');
+            });
+        });
+        
+        document.getElementById('btn-new').addEventListener('click', () => {
+            if (S.selectedNode) {
+                openCreateModal();
+            } else {
+                toast('Cliquez d\'abord sur un nœud', true);
+            }
+        });
+        
+        document.getElementById('btn-locate').addEventListener('click', () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(p => {
+                    S.map.setView([p.coords.latitude, p.coords.longitude], 13);
+                });
+            }
+        });
+        
+        document.getElementById('btn-territories').addEventListener('click', function() {
+            S.showTerritories = !S.showTerritories;
+            this.classList.toggle('active', S.showTerritories);
+            if (S.showTerritories) layers.territories.addTo(S.map);
+            else S.map.removeLayer(layers.territories);
+            renderMap();
+        });
+        
+        window.addEventListener('resize', () => { if (S.currentView === 'graph') renderGraph(); });
+        
+        // ════════════════════════════════════════════════════════════════════
+        // INIT
+        // ════════════════════════════════════════════════════════════════════
+        renderMap();
+        renderList();
+        updateStats();
+        updateFederationList();
+    }
+    </script>
+</body>
+</html>
