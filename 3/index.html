@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ CELLULES CITOYENNES — Kit Démo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root { --void:#000; --dark:#0a0a0f; --mid:#111; --green:#00ff9d; --blue:#00d4ff; --pink:#ff0080; --yellow:#ffea00; --red:#ff3366; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Share Tech Mono',monospace; background:var(--void); color:#fff; min-height:100vh; }
+        
+        .app { display:grid; grid-template-rows:50px 1fr; height:100vh; }
+        .main { display:grid; grid-template-columns:1fr 400px; }
+        @media(max-width:900px) { .main{grid-template-columns:1fr;} .sidebar{position:fixed;right:-400px;top:50px;bottom:0;width:90%;max-width:400px;transition:right 0.3s;z-index:1000;background:var(--dark);} .sidebar.open{right:0;} .mobile-toggle{display:block!important;} }
+        
+        header { background:var(--dark); border-bottom:2px solid var(--green); display:flex; align-items:center; justify-content:space-between; padding:0 1rem; }
+        .logo { font-family:'Orbitron'; font-size:0.85rem; color:var(--green); text-shadow:0 0 10px var(--green); }
+        .demo-badge { font-size:0.55rem; padding:0.2rem 0.5rem; background:linear-gradient(135deg,var(--pink),var(--blue)); color:#fff; margin-left:0.5rem; animation:pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.7;} }
+        .nav { display:flex; gap:0.25rem; }
+        .nav-btn { font-family:'Orbitron'; font-size:0.6rem; padding:0.5rem 0.75rem; background:none; border:1px solid #333; color:#666; cursor:pointer; }
+        .nav-btn:hover { border-color:var(--green); color:var(--green); }
+        .nav-btn.active { background:var(--green); color:#000; border-color:var(--green); }
+        .stats { display:flex; gap:1rem; }
+        .stat-val { font-family:'Orbitron'; font-size:0.9rem; color:var(--green); }
+        .stat-lbl { font-size:0.5rem; color:#444; }
+        .mobile-toggle { display:none; background:var(--green); border:none; color:#000; padding:0.5rem; cursor:pointer; font-size:1rem; }
+        
+        .map-wrap { position:relative; }
+        #map { width:100%; height:100%; }
+        .leaflet-container { background:#000; }
+        .leaflet-tile-pane { filter:saturate(0.1) brightness(0.25) contrast(1.5); }
+        
+        .map-ctrls { position:absolute; top:10px; left:10px; z-index:500; display:flex; flex-direction:column; gap:5px; }
+        .map-btn { width:34px; height:34px; background:var(--dark); border:1px solid var(--green); color:var(--green); cursor:pointer; font-size:0.9rem; }
+        .map-btn:hover,.map-btn.active { background:var(--green); color:#000; }
+        
+        .legend { position:absolute; bottom:10px; left:10px; z-index:500; background:var(--dark); border:1px solid #333; padding:0.5rem; font-size:0.6rem; }
+        .legend-item { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.2rem; color:#888; }
+        .legend-dot { width:8px; height:8px; border-radius:50%; }
+        
+        .sidebar { background:var(--dark); border-left:1px solid #222; display:flex; flex-direction:column; overflow:hidden; }
+        .sidebar-header { padding:0.75rem; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; }
+        .sidebar-title { font-family:'Orbitron'; font-size:0.65rem; color:var(--blue); }
+        .sidebar-close { display:none; background:none; border:none; color:var(--pink); font-size:1.2rem; cursor:pointer; }
+        @media(max-width:900px) { .sidebar-close{display:block;} }
+        .sidebar-content { flex:1; overflow-y:auto; padding:0.75rem; }
+        
+        .section { background:var(--mid); border:1px solid #333; padding:0.75rem; margin-bottom:0.75rem; }
+        .section-title { font-family:'Orbitron'; font-size:0.6rem; color:var(--blue); margin-bottom:0.5rem; display:flex; align-items:center; gap:0.5rem; }
+        
+        .form-row { margin-bottom:0.5rem; }
+        .form-label { font-size:0.6rem; color:#666; margin-bottom:0.2rem; display:block; }
+        .form-input { width:100%; font-family:'Share Tech Mono'; font-size:0.8rem; padding:0.4rem; background:#000; border:1px solid #333; color:#fff; }
+        .form-input:focus { outline:none; border-color:var(--green); }
+        textarea.form-input { min-height:60px; resize:vertical; }
+        
+        .btn { font-family:'Orbitron'; font-size:0.6rem; padding:0.5rem 0.75rem; border:none; cursor:pointer; transition:all 0.15s; }
+        .btn-primary { background:var(--green); color:#000; }
+        .btn-primary:hover { box-shadow:0 0 15px var(--green); }
+        .btn-secondary { background:none; border:1px solid var(--blue); color:var(--blue); }
+        .btn-danger { background:none; border:1px solid var(--red); color:var(--red); }
+        .btn-warning { background:none; border:1px solid var(--yellow); color:var(--yellow); }
+        .btn-block { width:100%; }
+        .btn-sm { font-size:0.55rem; padding:0.35rem 0.5rem; }
+        .btn-group { display:flex; gap:0.5rem; flex-wrap:wrap; }
+        
+        .card { background:#0a0a0a; border:1px solid #333; padding:0.6rem; margin-bottom:0.5rem; cursor:pointer; transition:all 0.15s; }
+        .card:hover { border-color:var(--green); }
+        .card-title { font-family:'Orbitron'; font-size:0.75rem; color:var(--green); }
+        .card-meta { font-size:0.65rem; color:#666; margin-top:0.2rem; }
+        .card-badge { font-size:0.5rem; padding:0.1rem 0.3rem; display:inline-block; margin-top:0.3rem; }
+        .badge-recruiting { background:rgba(255,234,0,0.2); color:var(--yellow); border:1px solid var(--yellow); }
+        .badge-active { background:rgba(0,255,157,0.2); color:var(--green); border:1px solid var(--green); }
+        .badge-live { background:rgba(0,212,255,0.2); color:var(--blue); border:1px solid var(--blue); }
+        .badge-synced { background:rgba(255,0,128,0.2); color:var(--pink); border:1px solid var(--pink); }
+        
+        .progress { height:5px; background:#333; margin-top:0.4rem; border-radius:2px; }
+        .progress-fill { height:100%; background:linear-gradient(90deg,var(--green),var(--blue)); border-radius:2px; }
+        
+        .participant { display:flex; justify-content:space-between; padding:0.3rem 0; border-bottom:1px solid #222; font-size:0.75rem; }
+        .participant:last-child { border:none; }
+        
+        .timeline { margin:0.5rem 0; }
+        .timeline-item { display:flex; gap:0.5rem; padding:0.3rem 0; }
+        .timeline-dot { width:10px; height:10px; border-radius:50%; border:2px solid #333; flex-shrink:0; margin-top:3px; }
+        .timeline-dot.done { background:var(--green); border-color:var(--green); }
+        .timeline-dot.active { border-color:var(--blue); background:var(--blue); animation:blink 1s infinite; }
+        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+        .timeline-content { flex:1; }
+        .timeline-title { font-size:0.7rem; }
+        .timeline-date { font-size:0.6rem; color:#666; }
+        
+        .contribution { background:#0a0a0a; border-left:2px solid var(--blue); padding:0.5rem; margin-bottom:0.5rem; }
+        .contribution-author { font-size:0.65rem; color:var(--green); margin-bottom:0.25rem; }
+        .contribution-text { font-size:0.75rem; color:#ccc; }
+        .contribution-meta { font-size:0.6rem; color:#555; margin-top:0.25rem; }
+        
+        .match-card { background:linear-gradient(135deg,#0a0a0a,#111); border:1px solid var(--blue); padding:0.5rem; margin-bottom:0.5rem; }
+        .match-score { font-family:'Orbitron'; font-size:1rem; color:var(--green); float:right; }
+        
+        .demo-tip { background:linear-gradient(135deg,rgba(255,0,128,0.1),rgba(0,212,255,0.1)); border:1px solid var(--pink); padding:0.75rem; margin-bottom:0.75rem; font-size:0.7rem; }
+        .demo-tip-title { font-family:'Orbitron'; font-size:0.6rem; color:var(--pink); margin-bottom:0.3rem; }
+        
+        .sync-panel { background:linear-gradient(135deg,#111,#0a0a0a); border:1px solid var(--yellow); padding:0.75rem; margin-bottom:0.75rem; }
+        .sync-title { font-family:'Orbitron'; font-size:0.65rem; color:var(--yellow); margin-bottom:0.5rem; }
+        
+        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.95); display:flex; align-items:center; justify-content:center; z-index:2000; }
+        .modal-overlay.hidden { display:none; }
+        .modal { background:var(--dark); border:1px solid var(--green); width:90%; max-width:500px; max-height:90vh; overflow-y:auto; }
+        .modal-header { padding:0.75rem; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center; }
+        .modal-title { font-family:'Orbitron'; font-size:0.8rem; color:var(--green); }
+        .modal-close { background:none; border:none; color:var(--pink); font-size:1.3rem; cursor:pointer; }
+        .modal-body { padding:1rem; }
+        .modal-footer { padding:0.75rem; border-top:1px solid #333; display:flex; gap:0.5rem; justify-content:flex-end; }
+        
+        .toast { position:fixed; bottom:-60px; left:50%; transform:translateX(-50%); background:var(--dark); border:1px solid var(--green); padding:0.6rem 1.2rem; z-index:3000; transition:bottom 0.3s; font-size:0.75rem; }
+        .toast.show { bottom:20px; }
+        
+        .tabs { display:flex; border-bottom:1px solid #333; margin-bottom:0.75rem; }
+        .tab { flex:1; padding:0.5rem; background:none; border:none; color:#666; cursor:pointer; font-size:0.65rem; border-bottom:2px solid transparent; }
+        .tab.active { color:var(--green); border-bottom-color:var(--green); }
+        
+        #graph-view { position:absolute; top:0; left:0; right:0; bottom:0; background:var(--dark); display:none; }
+        #graph-view.active { display:block; }
+        #graph-canvas { width:100%; height:100%; }
+        
+        .onboarding { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.98); z-index:5000; display:flex; align-items:center; justify-content:center; }
+        .onboarding.hidden { display:none; }
+        .onboarding-content { max-width:600px; padding:2rem; text-align:center; }
+        .onboarding-title { font-family:'Orbitron'; font-size:1.5rem; color:var(--green); margin-bottom:1rem; text-shadow:0 0 20px var(--green); }
+        .onboarding-text { font-size:0.85rem; color:#888; line-height:1.8; margin-bottom:1.5rem; }
+        .onboarding-features { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:2rem; text-align:left; }
+        .onboarding-feature { background:var(--mid); padding:1rem; border:1px solid #333; }
+        .onboarding-feature-icon { font-size:1.5rem; margin-bottom:0.5rem; }
+        .onboarding-feature-title { font-family:'Orbitron'; font-size:0.7rem; color:var(--green); margin-bottom:0.25rem; }
+        .onboarding-feature-text { font-size:0.65rem; color:#666; }
+        
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-track { background:#000; }
+        ::-webkit-scrollbar-thumb { background:var(--green); }
+    </style>
+</head>
+<body>
+    <!-- Onboarding -->
+    <div class="onboarding" id="onboarding">
+        <div class="onboarding-content">
+            <div class="onboarding-title">⚡ CELLULES CITOYENNES</div>
+            <div class="onboarding-text">
+                Plateforme de maillage territorial pour l'éducation populaire et l'intelligence collective.<br>
+                <strong style="color:var(--pink);">Kit de démonstration avec données embarquées.</strong>
+            </div>
+            <div class="onboarding-features">
+                <div class="onboarding-feature">
+                    <div class="onboarding-feature-icon">🗺️</div>
+                    <div class="onboarding-feature-title">MAILLAGE FWB</div>
+                    <div class="onboarding-feature-text">Couverture complète Bruxelles + Wallonie. Cliquez sur un nœud pour créer une cellule.</div>
+                </div>
+                <div class="onboarding-feature">
+                    <div class="onboarding-feature-icon">👥</div>
+                    <div class="onboarding-feature-title">CELLULES</div>
+                    <div class="onboarding-feature-text">Recrutez 5-9 participants. Quand le quorum est atteint, lancez un atelier.</div>
+                </div>
+                <div class="onboarding-feature">
+                    <div class="onboarding-feature-icon">📋</div>
+                    <div class="onboarding-feature-title">ATELIERS</div>
+                    <div class="onboarding-feature-text">14 jours async + 48h live. Toutes plateformes confondues.</div>
+                </div>
+                <div class="onboarding-feature">
+                    <div class="onboarding-feature-icon">🔄</div>
+                    <div class="onboarding-feature-title">FÉDÉRATION</div>
+                    <div class="onboarding-feature-text">Export/Import JSON pour synchroniser entre instances autonomes.</div>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="document.getElementById('onboarding').classList.add('hidden')" style="font-size:0.8rem;padding:0.75rem 2rem;">
+                🚀 Explorer la démo
+            </button>
+        </div>
+    </div>
+
+    <div class="app">
+        <header>
+            <div style="display:flex;align-items:center;">
+                <span class="logo">⚡ CELLULES CITOYENNES</span>
+                <span class="demo-badge">DÉMO</span>
+            </div>
+            <nav class="nav">
+                <button class="nav-btn active" data-view="map">🗺️ Carte</button>
+                <button class="nav-btn" data-view="graph">🕸️ Maillage</button>
+                <button class="nav-btn" data-view="ateliers">📋 Ateliers</button>
+            </nav>
+            <div class="stats">
+                <div><div class="stat-val" id="stat-cellules">0</div><div class="stat-lbl">Cellules</div></div>
+                <div><div class="stat-val" id="stat-participants">0</div><div class="stat-lbl">Citoyens</div></div>
+                <div><div class="stat-val" id="stat-ateliers">0</div><div class="stat-lbl">Ateliers</div></div>
+            </div>
+            <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+        </header>
+        
+        <div class="main">
+            <div class="map-wrap">
+                <div id="map"></div>
+                <div id="graph-view"><canvas id="graph-canvas"></canvas></div>
+                <div class="map-ctrls">
+                    <button class="map-btn" id="btn-locate" title="Ma position">◎</button>
+                    <button class="map-btn" id="btn-territories" title="Territoires">◇</button>
+                    <button class="map-btn" id="btn-links" title="Liens">⟁</button>
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-dot" style="background:#003b7a"></div> Bruxelles</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:#e30613"></div> Wallonie</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div> Recrutement</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Active</div>
+                    <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> Atelier en cours</div>
+                </div>
+            </div>
+            
+            <aside class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-title" id="sidebar-title">CELLULES</div>
+                    <button class="sidebar-close" onclick="document.getElementById('sidebar').classList.remove('open')">×</button>
+                </div>
+                <div class="sidebar-content" id="sidebar-content"></div>
+            </aside>
+        </div>
+    </div>
+    
+    <!-- Modal Create -->
+    <div class="modal-overlay hidden" id="modal-create">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">NOUVELLE CELLULE</div>
+                <button class="modal-close" onclick="closeModal('modal-create')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row"><label class="form-label">Votre pseudo</label><input class="form-input" id="f-pseudo"></div>
+                <div class="form-row"><label class="form-label">Titre</label><input class="form-input" id="f-title"></div>
+                <div class="form-row"><label class="form-label">Thématique</label>
+                    <select class="form-input" id="f-theme">
+                        <option value="">Choisir...</option>
+                        <option value="mobilite">🚲 Mobilité</option>
+                        <option value="environnement">🌱 Environnement</option>
+                        <option value="social">🤝 Social</option>
+                        <option value="numerique">💻 Numérique</option>
+                        <option value="culture">🎭 Culture</option>
+                        <option value="economie">💼 Économie</option>
+                        <option value="democratie">🗳️ Démocratie</option>
+                        <option value="education">📚 Éducation</option>
+                        <option value="sante">🏥 Santé</option>
+                    </select>
+                </div>
+                <div class="form-row"><label class="form-label">Description</label><textarea class="form-input" id="f-desc"></textarea></div>
+                <div id="create-loc" style="margin-top:0.5rem;padding:0.5rem;background:#000;font-size:0.7rem;color:var(--green);"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('modal-create')">Annuler</button>
+                <button class="btn btn-primary" id="btn-create-ok">Créer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Export -->
+    <div class="modal-overlay hidden" id="modal-export">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">📤 EXPORTER</div>
+                <button class="modal-close" onclick="closeModal('modal-export')">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.75rem;color:#888;margin-bottom:1rem;">Exportez vos données pour les partager ou sauvegarder.</p>
+                <div class="btn-group" style="flex-direction:column;">
+                    <button class="btn btn-primary btn-block" onclick="exportAll()">📦 Télécharger JSON complet</button>
+                    <button class="btn btn-secondary btn-block" onclick="copyAll()">📋 Copier dans le presse-papier</button>
+                </div>
+                <div style="margin-top:1rem;padding:0.75rem;background:#000;font-size:0.6rem;color:#666;max-height:150px;overflow:auto;" id="export-preview"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Import -->
+    <div class="modal-overlay hidden" id="modal-import">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">📥 IMPORTER</div>
+                <button class="modal-close" onclick="closeModal('modal-import')">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <label class="form-label">Collez les données JSON</label>
+                    <textarea class="form-input" id="import-text" style="min-height:120px;font-size:0.65rem;"></textarea>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="importData()">Importer et fusionner</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    (function waitL() { if (typeof L === 'undefined') { setTimeout(waitL, 50); return; } initApp(); })();
+    
+    function initApp() {
+        // ════════════════════════════════════════════════════════════════════
+        // DEMO DATA - Données réalistes embarquées
+        // ════════════════════════════════════════════════════════════════════
+        const DEMO_DATA = {
+            cellules: [
+                // === BRUXELLES ===
+                {
+                    id: 'demo_bxl_1',
+                    title: 'Vélo-école Ixelles',
+                    theme: 'mobilite',
+                    description: 'Apprendre à circuler à vélo en ville, réparer son vélo, connaître ses droits. Ateliers pratiques et théoriques pour tous niveaux.',
+                    lat: 50.8274, lon: 4.3720,
+                    zone: 'bxl',
+                    radius: 3,
+                    creator: 'MarieVelo',
+                    traceUrl: 'https://mastodon.social/@marievelo/velo-ecole',
+                    participants: [
+                        { name: 'MarieVelo', role: 'creator', joinedAt: '2026-01-10' },
+                        { name: 'PierreBXL', role: 'member', joinedAt: '2026-01-12' },
+                        { name: 'SophieMob', role: 'member', joinedAt: '2026-01-13' },
+                        { name: 'Ahmed_M', role: 'member', joinedAt: '2026-01-14' },
+                        { name: 'ClaraRoue', role: 'member', joinedAt: '2026-01-15' },
+                        { name: 'YvesCyclo', role: 'member', joinedAt: '2026-01-16' },
+                        { name: 'NadiaB', role: 'member', joinedAt: '2026-01-18' }
+                    ],
+                    minParticipants: 5, maxParticipants: 9,
+                    createdAt: '2026-01-10T10:00:00Z'
+                },
+                {
+                    id: 'demo_bxl_2',
+                    title: 'Potager collectif Schaerbeek',
+                    theme: 'environnement',
+                    description: 'Cultiver ensemble, partager les récoltes, apprendre la permaculture urbaine. Projet de transformation d\'une friche en jardin partagé.',
+                    lat: 50.8656, lon: 4.3750,
+                    zone: 'bxl',
+                    radius: 2,
+                    creator: 'GreenThumb',
+                    traceUrl: 'https://twitter.com/greenthumb_bxl',
+                    participants: [
+                        { name: 'GreenThumb', role: 'creator', joinedAt: '2026-01-05' },
+                        { name: 'Jardinier42', role: 'member', joinedAt: '2026-01-06' },
+                        { name: 'Permaculto', role: 'member', joinedAt: '2026-01-07' },
+                        { name: 'SoleilVert', role: 'member', joinedAt: '2026-01-08' },
+                        { name: 'TerreUrbaine', role: 'member', joinedAt: '2026-01-09' }
+                    ],
+                    minParticipants: 5, maxParticipants: 12,
+                    createdAt: '2026-01-05T14:00:00Z'
+                },
+                {
+                    id: 'demo_bxl_3',
+                    title: 'Repair Café Molenbeek',
+                    theme: 'economie',
+                    description: 'Réparer plutôt que jeter ! Électro, couture, informatique, vélo. Venez avec vos objets cassés, repartez avec des compétences.',
+                    lat: 50.8540, lon: 4.3280,
+                    zone: 'bxl',
+                    radius: 4,
+                    creator: 'FixItAll',
+                    participants: [
+                        { name: 'FixItAll', role: 'creator', joinedAt: '2026-01-08' },
+                        { name: 'ElectroBen', role: 'member', joinedAt: '2026-01-09' },
+                        { name: 'CoutureKim', role: 'member', joinedAt: '2026-01-10' },
+                        { name: 'TechSam', role: 'member', joinedAt: '2026-01-11' }
+                    ],
+                    minParticipants: 5, maxParticipants: 9,
+                    createdAt: '2026-01-08T09:00:00Z'
+                },
+                {
+                    id: 'demo_bxl_4',
+                    title: 'Alphabétisation numérique',
+                    theme: 'numerique',
+                    description: 'Accompagner les seniors et publics éloignés du numérique. Smartphones, emails, démarches en ligne, sécurité.',
+                    lat: 50.8450, lon: 4.3570,
+                    zone: 'bxl',
+                    radius: 5,
+                    creator: 'DigiSenior',
+                    participants: [
+                        { name: 'DigiSenior', role: 'creator', joinedAt: '2026-01-12' },
+                        { name: 'PatientPaul', role: 'member', joinedAt: '2026-01-13' },
+                        { name: 'HelperHana', role: 'member', joinedAt: '2026-01-14' },
+                        { name: 'TechTeach', role: 'member', joinedAt: '2026-01-15' },
+                        { name: 'SeniorSoph', role: 'member', joinedAt: '2026-01-16' },
+                        { name: 'DigitalDan', role: 'member', joinedAt: '2026-01-17' }
+                    ],
+                    minParticipants: 5, maxParticipants: 9,
+                    createdAt: '2026-01-12T11:00:00Z'
+                },
+                
+                // === WALLONIE ===
+                {
+                    id: 'demo_wal_1',
+                    title: 'Conseil citoyen Namur',
+                    theme: 'democratie',
+                    description: 'Groupe de veille sur les décisions communales. Analyse des conseils communaux, propositions citoyennes, interpellations.',
+                    lat: 50.4669, lon: 4.8620,
+                    zone: 'wal',
+                    radius: 8,
+                    creator: 'CitoyenActif',
+                    traceUrl: 'https://namur.participe.be/conseil-citoyen',
+                    participants: [
+                        { name: 'CitoyenActif', role: 'creator', joinedAt: '2026-01-02' },
+                        { name: 'DemocrateJo', role: 'member', joinedAt: '2026-01-03' },
+                        { name: 'VeilleCit', role: 'member', joinedAt: '2026-01-04' },
+                        { name: 'NamurWatch', role: 'member', joinedAt: '2026-01-05' },
+                        { name: 'ParticiPat', role: 'member', joinedAt: '2026-01-06' },
+                        { name: 'ConseilCla', role: 'member', joinedAt: '2026-01-07' },
+                        { name: 'CitizenNam', role: 'member', joinedAt: '2026-01-08' },
+                        { name: 'DemosNamur', role: 'member', joinedAt: '2026-01-09' }
+                    ],
+                    minParticipants: 5, maxParticipants: 15,
+                    createdAt: '2026-01-02T08:00:00Z'
+                },
+                {
+                    id: 'demo_wal_2',
+                    title: 'FabLab Liège',
+                    theme: 'numerique',
+                    description: 'Fabrication numérique accessible à tous. Imprimantes 3D, découpe laser, Arduino, électronique. Projets collaboratifs.',
+                    lat: 50.6243, lon: 5.5666,
+                    zone: 'wal',
+                    radius: 6,
+                    creator: 'MakerLiege',
+                    traceUrl: 'https://fablabliege.be',
+                    participants: [
+                        { name: 'MakerLiege', role: 'creator', joinedAt: '2026-01-01' },
+                        { name: '3DPrintPro', role: 'member', joinedAt: '2026-01-02' },
+                        { name: 'LaserLuc', role: 'member', joinedAt: '2026-01-03' },
+                        { name: 'ArduinoAna', role: 'member', joinedAt: '2026-01-04' },
+                        { name: 'ElectroniK', role: 'member', joinedAt: '2026-01-05' },
+                        { name: 'DesignDave', role: 'member', joinedAt: '2026-01-06' }
+                    ],
+                    minParticipants: 5, maxParticipants: 12,
+                    createdAt: '2026-01-01T10:00:00Z'
+                },
+                {
+                    id: 'demo_wal_3',
+                    title: 'Épicerie sociale Charleroi',
+                    theme: 'social',
+                    description: 'Alimentation à prix solidaire, lutte contre le gaspillage, lien social. Bénévolat et entraide dans les quartiers.',
+                    lat: 50.4120, lon: 4.4445,
+                    zone: 'wal',
+                    radius: 5,
+                    creator: 'SolidaireCha',
+                    participants: [
+                        { name: 'SolidaireCha', role: 'creator', joinedAt: '2026-01-06' },
+                        { name: 'EntraideEva', role: 'member', joinedAt: '2026-01-07' },
+                        { name: 'PartageMax', role: 'member', joinedAt: '2026-01-08' },
+                        { name: 'AntiGaspi', role: 'member', joinedAt: '2026-01-09' },
+                        { name: 'SocialSam', role: 'member', joinedAt: '2026-01-10' },
+                        { name: 'AidePaul', role: 'member', joinedAt: '2026-01-11' },
+                        { name: 'EpicerieEm', role: 'member', joinedAt: '2026-01-12' }
+                    ],
+                    minParticipants: 5, maxParticipants: 15,
+                    createdAt: '2026-01-06T15:00:00Z'
+                },
+                {
+                    id: 'demo_wal_4',
+                    title: 'Théâtre-forum Mons',
+                    theme: 'culture',
+                    description: 'Théâtre de l\'opprimé : mettre en scène les conflits du quotidien, chercher des solutions ensemble. Expression et émancipation.',
+                    lat: 50.4531, lon: 3.9519,
+                    zone: 'wal',
+                    radius: 7,
+                    creator: 'SceneOuverte',
+                    participants: [
+                        { name: 'SceneOuverte', role: 'creator', joinedAt: '2026-01-03' },
+                        { name: 'ActeurAlex', role: 'member', joinedAt: '2026-01-04' },
+                        { name: 'ImprovIsa', role: 'member', joinedAt: '2026-01-05' }
+                    ],
+                    minParticipants: 6, maxParticipants: 12,
+                    createdAt: '2026-01-03T18:00:00Z'
+                },
+                {
+                    id: 'demo_wal_5',
+                    title: 'Santé communautaire LLN',
+                    theme: 'sante',
+                    description: 'Prévention, bien-être, accès aux soins. Groupe de parole, ateliers nutrition, yoga accessible, médiation santé.',
+                    lat: 50.6696, lon: 4.6157,
+                    zone: 'wal',
+                    radius: 4,
+                    creator: 'SantePourTous',
+                    participants: [
+                        { name: 'SantePourTous', role: 'creator', joinedAt: '2026-01-08' },
+                        { name: 'DocMarie', role: 'member', joinedAt: '2026-01-09' },
+                        { name: 'YogaYann', role: 'member', joinedAt: '2026-01-10' },
+                        { name: 'NutriNadia', role: 'member', joinedAt: '2026-01-11' },
+                        { name: 'BienEtreBea', role: 'member', joinedAt: '2026-01-12' }
+                    ],
+                    minParticipants: 5, maxParticipants: 10,
+                    createdAt: '2026-01-08T12:00:00Z'
+                },
+                {
+                    id: 'demo_wal_6',
+                    title: 'École citoyenne Verviers',
+                    theme: 'education',
+                    description: 'Éducation populaire : comprendre l\'économie, les institutions, les médias. Ateliers de décryptage et esprit critique.',
+                    lat: 50.5887, lon: 5.8660,
+                    zone: 'wal',
+                    radius: 5,
+                    creator: 'EduPop',
+                    participants: [
+                        { name: 'EduPop', role: 'creator', joinedAt: '2026-01-04' },
+                        { name: 'CritiqueCla', role: 'member', joinedAt: '2026-01-05' },
+                        { name: 'DecryptoMax', role: 'member', joinedAt: '2026-01-06' },
+                        { name: 'MediaWatch', role: 'member', joinedAt: '2026-01-07' },
+                        { name: 'EcoExplain', role: 'member', joinedAt: '2026-01-08' },
+                        { name: 'PedagoPhil', role: 'member', joinedAt: '2026-01-09' }
+                    ],
+                    minParticipants: 5, maxParticipants: 12,
+                    createdAt: '2026-01-04T14:00:00Z'
+                }
+            ],
+            
+            ateliers: [
+                {
+                    id: 'atelier_1',
+                    celluleId: 'demo_bxl_1',
+                    title: 'Sécurité vélo en ville',
+                    status: 'live',
+                    asyncStart: '2026-01-14T00:00:00Z',
+                    asyncEnd: '2026-01-28T00:00:00Z',
+                    liveStart: '2026-01-28T18:00:00Z',
+                    liveEnd: '2026-01-30T18:00:00Z',
+                    platforms: 'Jitsi: https://meet.jit.si/velo-ecole-ixelles | Pad: https://pad.riseup.net/velo-secu',
+                    contributions: [
+                        { author: 'PierreBXL', text: 'On devrait cartographier les points noirs vélo à Ixelles', date: '2026-01-15', votes: 5 },
+                        { author: 'SophieMob', text: 'Idée : organiser une masse critique mensuelle', date: '2026-01-16', votes: 7 },
+                        { author: 'Ahmed_M', text: 'Contact avec le service mobilité de la commune ?', date: '2026-01-17', votes: 3 },
+                        { author: 'ClaraRoue', text: 'Ressource : guide juridique du cycliste urbain (Gracq)', date: '2026-01-18', votes: 4 },
+                        { author: 'MarieVelo', text: 'Synthèse intermédiaire : 3 axes se dégagent - formation, plaidoyer, entraide', date: '2026-01-20', votes: 8 }
+                    ]
+                },
+                {
+                    id: 'atelier_2',
+                    celluleId: 'demo_wal_1',
+                    title: 'Budget participatif 2026',
+                    status: 'async',
+                    asyncStart: '2026-01-20T00:00:00Z',
+                    asyncEnd: '2026-02-03T00:00:00Z',
+                    liveStart: '2026-02-03T19:00:00Z',
+                    liveEnd: '2026-02-05T19:00:00Z',
+                    platforms: 'Discord: discord.gg/namur-citoyen | Decidim: namur.participe.be',
+                    contributions: [
+                        { author: 'DemocrateJo', text: 'Analyse du budget 2025 : où sont passés les 500k de participation ?', date: '2026-01-21', votes: 12 },
+                        { author: 'VeilleCit', text: 'Comparaison avec Liège et Charleroi : on est en retard', date: '2026-01-22', votes: 8 },
+                        { author: 'NamurWatch', text: 'Proposition : plateforme de suivi des projets votés', date: '2026-01-23', votes: 15 }
+                    ]
+                },
+                {
+                    id: 'atelier_3',
+                    celluleId: 'demo_wal_2',
+                    title: 'Projet imprimante 3D recyclage',
+                    status: 'completed',
+                    asyncStart: '2025-12-15T00:00:00Z',
+                    asyncEnd: '2025-12-29T00:00:00Z',
+                    liveStart: '2025-12-29T14:00:00Z',
+                    liveEnd: '2025-12-31T14:00:00Z',
+                    platforms: 'Matrix: #fablab-liege:matrix.org',
+                    outcomes: [
+                        'Décision : lancer un projet de filament recyclé à partir de bouteilles PET',
+                        'Action : commander la machine à broyer (budget 800€ validé)',
+                        'Action : partenariat avec Intradel pour récupération plastique',
+                        'Prochaine étape : prototype en février'
+                    ],
+                    contributions: []
+                }
+            ],
+            
+            federatedSources: [
+                { id: 'fed_liege', name: 'Réseau Liège en Transition', importedAt: '2026-01-15', celluleCount: 3 },
+                { id: 'fed_bw', name: 'Collectifs Brabant Wallon', importedAt: '2026-01-18', celluleCount: 2 }
+            ]
+        };
+        
+        // ════════════════════════════════════════════════════════════════════
+        // STATE
+        // ════════════════════════════════════════════════════════════════════
+        const DB_KEY = 'cellules_demo_v1';
+        const S = {
+            map: null,
+            nodes: [],
+            data: loadOrInit(),
+            selectedNode: null,
+            selectedCellule: null,
+            currentView: 'map',
+            showTerritories: false,
+            showLinks: true
+        };
+        
+        function loadOrInit() {
+            const saved = localStorage.getItem(DB_KEY);
+            if (saved) return JSON.parse(saved);
+            // Initialize with demo data
+            const data = JSON.parse(JSON.stringify(DEMO_DATA));
+            data.meta = { created: new Date().toISOString() };
+            localStorage.setItem(DB_KEY, JSON.stringify(data));
+            return data;
+        }
+        
+        function saveData() {
+            localStorage.setItem(DB_KEY, JSON.stringify(S.data));
+        }
+        
+        function generateId() {
+            return 'C' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // GENERATE GRID
+        // ════════════════════════════════════════════════════════════════════
+        (function generateNodes() {
+            let id = 0;
+            for (let lat = 50.78; lat <= 50.90; lat += 0.012) {
+                for (let lon = 4.28; lon <= 4.48; lon += 0.012) {
+                    S.nodes.push({ id: 'B' + (id++), lat, lon, zone: 'bxl' });
+                }
+            }
+            for (let lat = 49.55; lat <= 50.75; lat += 0.05) {
+                for (let lon = 2.85; lon <= 6.35; lon += 0.05) {
+                    S.nodes.push({ id: 'W' + (id++), lat, lon, zone: 'wal' });
+                }
+            }
+        })();
+        
+        // ════════════════════════════════════════════════════════════════════
+        // MAP
+        // ════════════════════════════════════════════════════════════════════
+        S.map = L.map('map', { center: [50.5, 4.5], zoom: 8, preferCanvas: true });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 18 }).addTo(S.map);
+        
+        const layers = {
+            nodes: L.layerGroup().addTo(S.map),
+            cellules: L.layerGroup().addTo(S.map),
+            territories: L.layerGroup(),
+            links: L.layerGroup().addTo(S.map)
+        };
+        
+        function renderMap() {
+            layers.nodes.clearLayers();
+            layers.cellules.clearLayers();
+            layers.territories.clearLayers();
+            layers.links.clearLayers();
+            
+            const celluleCoords = S.data.cellules.map(c => `${c.lat.toFixed(2)}_${c.lon.toFixed(2)}`);
+            
+            // Nodes
+            S.nodes.forEach(n => {
+                const key = `${n.lat.toFixed(2)}_${n.lon.toFixed(2)}`;
+                if (celluleCoords.includes(key)) return;
+                const color = n.zone === 'bxl' ? '#003b7a' : '#e30613';
+                L.circleMarker([n.lat, n.lon], { radius: 3, color, fillColor: color, fillOpacity: 0.3, weight: 1 })
+                    .on('click', () => selectNode(n))
+                    .addTo(layers.nodes);
+            });
+            
+            // Cellules
+            S.data.cellules.forEach(c => {
+                const ready = c.participants.length >= (c.minParticipants || 5);
+                const atelier = S.data.ateliers.find(a => a.celluleId === c.id);
+                const hasLive = atelier && (atelier.status === 'async' || atelier.status === 'live');
+                
+                let color = '#ffea00';
+                if (ready) color = '#00ff9d';
+                if (hasLive) color = '#00d4ff';
+                
+                const size = 8 + c.participants.length * 1.5;
+                
+                L.circleMarker([c.lat, c.lon], { radius: size, color, fillColor: color, fillOpacity: 0.85, weight: 2 })
+                    .on('click', () => selectCellule(c))
+                    .bindTooltip(`<strong>${c.title}</strong><br>${c.participants.length} participants`, { direction: 'top' })
+                    .addTo(layers.cellules);
+                
+                if (S.showTerritories && c.radius) {
+                    L.circle([c.lat, c.lon], { radius: c.radius * 1000, color, fillOpacity: 0.08, weight: 1 })
+                        .addTo(layers.territories);
+                }
+            });
+            
+            // Links between ready cellules
+            if (S.showLinks) {
+                const ready = S.data.cellules.filter(c => c.participants.length >= 5);
+                ready.forEach((a, i) => {
+                    ready.slice(i + 1).forEach(b => {
+                        const d = dist(a.lat, a.lon, b.lat, b.lon);
+                        if (d <= 20) {
+                            L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
+                                color: '#00d4ff',
+                                weight: Math.max(1, 3 - d / 10),
+                                opacity: Math.max(0.15, 0.5 - d / 40),
+                                dashArray: '5,10'
+                            }).addTo(layers.links);
+                        }
+                    });
+                });
+            }
+        }
+        
+        function dist(lat1, lon1, lat2, lon2) {
+            const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // SELECT NODE
+        // ════════════════════════════════════════════════════════════════════
+        function selectNode(node) {
+            S.selectedNode = node;
+            S.selectedCellule = null;
+            document.getElementById('sidebar-title').textContent = 'NOUVEAU';
+            document.getElementById('sidebar-content').innerHTML = `
+                <div class="demo-tip">
+                    <div class="demo-tip-title">💡 ASTUCE DÉMO</div>
+                    Créez votre propre cellule sur ce nœud pour tester le système !
+                </div>
+                <div class="section">
+                    <div class="section-title">📍 POSITION</div>
+                    <div style="color:var(--green);font-family:Orbitron;">${node.zone === 'bxl' ? 'Bruxelles' : 'Wallonie'}</div>
+                    <div style="font-size:0.7rem;color:#666;">${node.lat.toFixed(4)}, ${node.lon.toFixed(4)}</div>
+                </div>
+                <button class="btn btn-primary btn-block" onclick="openCreateModal()">+ Créer une cellule</button>
+                <button class="btn btn-secondary btn-block" style="margin-top:0.5rem;" onclick="renderList()">← Retour à la liste</button>
+            `;
+            S.map.setView([node.lat, node.lon], 12);
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // SELECT CELLULE
+        // ════════════════════════════════════════════════════════════════════
+        function selectCellule(c) {
+            S.selectedCellule = c;
+            S.selectedNode = null;
+            renderCelluleDetail(c);
+            S.map.setView([c.lat, c.lon], 12);
+            document.getElementById('sidebar').classList.add('open');
+        }
+        
+        function renderCelluleDetail(c) {
+            document.getElementById('sidebar-title').textContent = 'CELLULE';
+            const pct = (c.participants.length / (c.maxParticipants || 9)) * 100;
+            const ready = c.participants.length >= (c.minParticipants || 5);
+            const atelier = S.data.ateliers.find(a => a.celluleId === c.id);
+            
+            let statusBadge = ready ? 'badge-active' : 'badge-recruiting';
+            let statusText = ready ? 'ACTIVE' : 'RECRUTEMENT';
+            if (atelier && atelier.status === 'live') { statusBadge = 'badge-live'; statusText = 'LIVE 🔴'; }
+            if (atelier && atelier.status === 'async') { statusBadge = 'badge-live'; statusText = 'ASYNC'; }
+            
+            let html = `
+                <div class="section">
+                    <div class="card-title" style="font-size:1.1rem;">${c.title}</div>
+                    <span class="card-badge ${statusBadge}">${statusText}</span>
+                    <div class="card-meta" style="margin-top:0.5rem;">${getEmoji(c.theme)} ${c.theme || ''} • ${c.zone === 'bxl' ? 'Bruxelles' : 'Wallonie'}</div>
+                    <p style="font-size:0.75rem;color:#888;margin:0.75rem 0;line-height:1.5;">${c.description || ''}</p>
+                    ${c.traceUrl ? `<a href="${c.traceUrl}" target="_blank" style="color:var(--blue);font-size:0.7rem;">→ Voir la trace</a>` : ''}
+                    <div style="font-size:0.65rem;color:#555;margin-top:0.5rem;">Créé par <span style="color:var(--green);">${c.creator}</span></div>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">👥 PARTICIPANTS (${c.participants.length}/${c.maxParticipants || 9})</div>
+                    <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
+                    <div style="margin-top:0.5rem;">
+                        ${c.participants.map((p, i) => `
+                            <div class="participant">
+                                <span style="color:${i===0?'var(--green)':'#888'}">${i===0?'👑 ':''}${p.name}</span>
+                                <span style="font-size:0.6rem;color:#555;">${p.joinedAt?.split('T')[0] || ''}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${c.participants.length < (c.maxParticipants || 9) ? `
+                        <button class="btn btn-secondary btn-block" style="margin-top:0.5rem;" onclick="addParticipant('${c.id}')">+ Rejoindre cette cellule</button>
+                    ` : ''}
+                </div>
+            `;
+            
+            // Atelier section
+            if (ready || atelier) {
+                html += `<div class="section"><div class="section-title">📋 ATELIER</div>`;
+                
+                if (atelier) {
+                    html += `
+                        <div class="timeline">
+                            <div class="timeline-item">
+                                <div class="timeline-dot ${atelier.status !== 'planned' ? 'done' : ''}"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Phase async (14 jours)</div>
+                                    <div class="timeline-date">${atelier.asyncStart ? new Date(atelier.asyncStart).toLocaleDateString() : ''} → ${atelier.asyncEnd ? new Date(atelier.asyncEnd).toLocaleDateString() : ''}</div>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-dot ${atelier.status === 'live' ? 'active' : (atelier.status === 'completed' ? 'done' : '')}"></div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Live 48h</div>
+                                    <div class="timeline-date">${atelier.liveStart ? new Date(atelier.liveStart).toLocaleDateString() : ''}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (atelier.platforms) {
+                        html += `<div style="font-size:0.7rem;color:#666;margin:0.5rem 0;"><strong>Plateformes :</strong><br>${atelier.platforms.split('|').map(p => `<a href="${p.split(':')[1]?.trim()}" target="_blank" style="color:var(--blue);">${p.split(':')[0]}</a>`).join(' • ')}</div>`;
+                    }
+                    
+                    // Contributions
+                    if (atelier.contributions && atelier.contributions.length > 0) {
+                        html += `<div class="section-title" style="margin-top:0.75rem;">💬 CONTRIBUTIONS</div>`;
+                        atelier.contributions.slice(0, 5).forEach(contrib => {
+                            html += `
+                                <div class="contribution">
+                                    <div class="contribution-author">${contrib.author}</div>
+                                    <div class="contribution-text">${contrib.text}</div>
+                                    <div class="contribution-meta">👍 ${contrib.votes || 0} • ${contrib.date}</div>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    // Outcomes
+                    if (atelier.outcomes && atelier.outcomes.length > 0) {
+                        html += `<div class="section-title" style="margin-top:0.75rem;">✅ DÉCISIONS</div>`;
+                        atelier.outcomes.forEach(o => {
+                            html += `<div style="font-size:0.7rem;color:#ccc;padding:0.3rem 0;border-bottom:1px solid #222;">• ${o}</div>`;
+                        });
+                    }
+                    
+                } else {
+                    html += `
+                        <div style="text-align:center;padding:1rem;">
+                            <div style="font-size:0.8rem;color:var(--green);margin-bottom:0.5rem;">✓ Quorum atteint !</div>
+                            <button class="btn btn-primary" onclick="startAtelier('${c.id}')">🚀 Lancer l'atelier</button>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+            }
+            
+            // Matches
+            const matches = S.data.cellules
+                .filter(x => x.id !== c.id && x.participants.length >= 5)
+                .map(x => ({ ...x, d: dist(c.lat, c.lon, x.lat, x.lon), score: calcScore(c, x) }))
+                .filter(x => x.d <= 25)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 4);
+            
+            if (matches.length > 0) {
+                html += `<div class="section"><div class="section-title">🔗 MATCHES TERRITORIAUX</div>`;
+                matches.forEach(m => {
+                    html += `
+                        <div class="match-card" onclick="selectCellule(S.data.cellules.find(c=>c.id==='${m.id}'))">
+                            <div class="match-score">${m.score}%</div>
+                            <div class="card-title">${m.title}</div>
+                            <div class="card-meta">${m.d.toFixed(1)} km • ${m.participants.length} participants ${m.theme === c.theme ? '• 🎯 même thème' : ''}</div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+            
+            html += `
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="renderList()">← Retour</button>
+                    <button class="btn btn-warning btn-sm" onclick="exportCellule('${c.id}')">📤</button>
+                </div>
+            `;
+            
+            document.getElementById('sidebar-content').innerHTML = html;
+        }
+        
+        function calcScore(a, b) {
+            let score = 50;
+            const d = dist(a.lat, a.lon, b.lat, b.lon);
+            score += Math.max(0, 30 - d * 2);
+            if (a.theme === b.theme) score += 20;
+            return Math.min(100, Math.round(score));
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // CRUD
+        // ════════════════════════════════════════════════════════════════════
+        window.openCreateModal = function() {
+            if (!S.selectedNode) { toast('Cliquez sur un nœud', true); return; }
+            document.getElementById('create-loc').innerHTML = `📍 ${S.selectedNode.lat.toFixed(4)}, ${S.selectedNode.lon.toFixed(4)}`;
+            document.getElementById('modal-create').classList.remove('hidden');
+        };
+        
+        document.getElementById('btn-create-ok').addEventListener('click', () => {
+            const pseudo = document.getElementById('f-pseudo').value.trim();
+            const title = document.getElementById('f-title').value.trim();
+            const theme = document.getElementById('f-theme').value;
+            const desc = document.getElementById('f-desc').value.trim();
+            
+            if (!pseudo || !title) { toast('Pseudo et titre requis', true); return; }
+            
+            S.data.cellules.push({
+                id: generateId(),
+                title, theme, description: desc,
+                lat: S.selectedNode.lat, lon: S.selectedNode.lon,
+                zone: S.selectedNode.zone,
+                radius: 5,
+                creator: pseudo,
+                participants: [{ name: pseudo, role: 'creator', joinedAt: new Date().toISOString().split('T')[0] }],
+                minParticipants: 5, maxParticipants: 9,
+                createdAt: new Date().toISOString()
+            });
+            
+            saveData();
+            closeModal('modal-create');
+            document.getElementById('f-pseudo').value = '';
+            document.getElementById('f-title').value = '';
+            document.getElementById('f-desc').value = '';
+            renderMap();
+            renderList();
+            updateStats();
+            toast('Cellule créée !');
+        });
+        
+        window.addParticipant = function(id) {
+            const name = prompt('Votre pseudo :');
+            if (!name) return;
+            const c = S.data.cellules.find(x => x.id === id);
+            if (!c || c.participants.some(p => p.name.toLowerCase() === name.toLowerCase())) { toast('Pseudo déjà pris', true); return; }
+            c.participants.push({ name, role: 'member', joinedAt: new Date().toISOString().split('T')[0] });
+            saveData();
+            renderMap();
+            renderCelluleDetail(c);
+            updateStats();
+            toast(c.participants.length >= c.minParticipants ? '🎉 Quorum atteint !' : 'Bienvenue !');
+        };
+        
+        window.startAtelier = function(celluleId) {
+            const now = new Date();
+            const asyncEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+            S.data.ateliers.push({
+                id: generateId(),
+                celluleId,
+                title: 'Atelier ' + now.toLocaleDateString(),
+                status: 'async',
+                asyncStart: now.toISOString(),
+                asyncEnd: asyncEnd.toISOString(),
+                liveStart: asyncEnd.toISOString(),
+                liveEnd: new Date(asyncEnd.getTime() + 48 * 60 * 60 * 1000).toISOString(),
+                platforms: '',
+                contributions: []
+            });
+            saveData();
+            const c = S.data.cellules.find(x => x.id === celluleId);
+            if (c) renderCelluleDetail(c);
+            renderMap();
+            updateStats();
+            toast('🚀 Atelier lancé !');
+        };
+        
+        // ════════════════════════════════════════════════════════════════════
+        // EXPORT / IMPORT
+        // ════════════════════════════════════════════════════════════════════
+        window.exportAll = function() {
+            const blob = new Blob([JSON.stringify(S.data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `cellules_export_${Date.now()}.json`;
+            a.click();
+            toast('Exporté !');
+        };
+        
+        window.copyAll = function() {
+            navigator.clipboard.writeText(JSON.stringify(S.data, null, 2)).then(() => toast('Copié !'));
+        };
+        
+        window.exportCellule = function(id) {
+            const c = S.data.cellules.find(x => x.id === id);
+            const a = S.data.ateliers.filter(x => x.celluleId === id);
+            const data = { cellule: c, ateliers: a };
+            navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => toast('Cellule copiée !'));
+        };
+        
+        window.importData = function() {
+            try {
+                const data = JSON.parse(document.getElementById('import-text').value);
+                if (data.cellules) {
+                    data.cellules.forEach(c => {
+                        if (!S.data.cellules.some(x => x.id === c.id)) {
+                            c.federated = true;
+                            S.data.cellules.push(c);
+                        }
+                    });
+                }
+                if (data.cellule && !S.data.cellules.some(x => x.id === data.cellule.id)) {
+                    data.cellule.federated = true;
+                    S.data.cellules.push(data.cellule);
+                }
+                if (data.ateliers) {
+                    data.ateliers.forEach(a => {
+                        if (!S.data.ateliers.some(x => x.id === a.id)) S.data.ateliers.push(a);
+                    });
+                }
+                saveData();
+                closeModal('modal-import');
+                renderMap();
+                renderList();
+                updateStats();
+                toast('Importé !');
+            } catch (e) {
+                toast('JSON invalide', true);
+            }
+        };
+        
+        // ════════════════════════════════════════════════════════════════════
+        // SIDEBAR LIST
+        // ════════════════════════════════════════════════════════════════════
+        function renderList() {
+            document.getElementById('sidebar-title').textContent = 'CELLULES';
+            S.selectedCellule = null;
+            
+            let html = `
+                <div class="demo-tip">
+                    <div class="demo-tip-title">🎮 MODE DÉMO</div>
+                    ${S.data.cellules.length} cellules • ${S.data.ateliers.length} ateliers<br>
+                    Cliquez sur les cellules pour explorer, ou créez la vôtre !
+                </div>
+                
+                <div class="sync-panel">
+                    <div class="sync-title">🔄 SYNCHRONISATION</div>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-export').classList.remove('hidden');document.getElementById('export-preview').textContent=JSON.stringify(S.data,null,2).slice(0,500)+'...'">📤 Export</button>
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-import').classList.remove('hidden')">📥 Import</button>
+                        <button class="btn btn-danger btn-sm" onclick="if(confirm('Réinitialiser avec les données démo ?')){localStorage.removeItem('${DB_KEY}');location.reload();}">🔄 Reset</button>
+                    </div>
+                </div>
+                
+                <div class="tabs">
+                    <button class="tab active" onclick="filterList('all',this)">Toutes</button>
+                    <button class="tab" onclick="filterList('bxl',this)">Bruxelles</button>
+                    <button class="tab" onclick="filterList('wal',this)">Wallonie</button>
+                </div>
+                <div id="cellules-list">
+            `;
+            
+            const sorted = [...S.data.cellules].sort((a, b) => b.participants.length - a.participants.length);
+            
+            sorted.forEach(c => {
+                const ready = c.participants.length >= (c.minParticipants || 5);
+                const atelier = S.data.ateliers.find(a => a.celluleId === c.id);
+                let badge = ready ? 'badge-active' : 'badge-recruiting';
+                let status = ready ? 'ACTIVE' : 'RECRUT.';
+                if (atelier && (atelier.status === 'async' || atelier.status === 'live')) {
+                    badge = 'badge-live';
+                    status = atelier.status === 'live' ? 'LIVE 🔴' : 'ASYNC';
+                }
+                
+                html += `
+                    <div class="card" data-zone="${c.zone}" onclick="selectCellule(S.data.cellules.find(x=>x.id==='${c.id}'))">
+                        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                            <div class="card-title">${c.title}</div>
+                            <span class="card-badge ${badge}">${status}</span>
+                        </div>
+                        <div class="card-meta">${getEmoji(c.theme)} ${c.theme || ''} • ${c.participants.length}/${c.maxParticipants || 9} • ${c.zone === 'bxl' ? 'BXL' : 'WAL'}</div>
+                        <div class="progress"><div class="progress-fill" style="width:${(c.participants.length / (c.maxParticipants || 9)) * 100}%"></div></div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            document.getElementById('sidebar-content').innerHTML = html;
+        }
+        
+        window.filterList = function(zone, btn) {
+            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('#cellules-list .card').forEach(card => {
+                if (zone === 'all' || card.dataset.zone === zone) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        };
+        
+        // ════════════════════════════════════════════════════════════════════
+        // GRAPH
+        // ════════════════════════════════════════════════════════════════════
+        function renderGraph() {
+            const canvas = document.getElementById('graph-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            const r = Math.min(cx, cy) * 0.75;
+            
+            const nodes = S.data.cellules.map((c, i) => ({
+                c,
+                x: cx + Math.cos(i / S.data.cellules.length * Math.PI * 2 - Math.PI/2) * r,
+                y: cy + Math.sin(i / S.data.cellules.length * Math.PI * 2 - Math.PI/2) * r
+            }));
+            
+            // Links
+            ctx.strokeStyle = '#00d4ff';
+            nodes.forEach((a, i) => {
+                nodes.slice(i+1).forEach(b => {
+                    if (a.c.participants.length >= 5 && b.c.participants.length >= 5) {
+                        const d = dist(a.c.lat, a.c.lon, b.c.lat, b.c.lon);
+                        if (d <= 25) {
+                            ctx.lineWidth = Math.max(0.5, 2 - d / 15);
+                            ctx.globalAlpha = Math.max(0.1, 0.4 - d / 60);
+                            ctx.beginPath();
+                            ctx.moveTo(a.x, a.y);
+                            ctx.lineTo(b.x, b.y);
+                            ctx.stroke();
+                        }
+                    }
+                });
+            });
+            ctx.globalAlpha = 1;
+            
+            // Nodes
+            nodes.forEach(n => {
+                const ready = n.c.participants.length >= 5;
+                const atelier = S.data.ateliers.find(a => a.celluleId === n.c.id);
+                const size = 12 + n.c.participants.length * 2;
+                
+                let color = '#ffea00';
+                if (ready) color = '#00ff9d';
+                if (atelier && (atelier.status === 'async' || atelier.status === 'live')) color = '#00d4ff';
+                
+                // Glow
+                const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, size * 2);
+                grad.addColorStop(0, color + '66');
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.fillRect(n.x - size * 2, n.y - size * 2, size * 4, size * 4);
+                
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, size, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 10px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(n.c.participants.length, n.x, n.y);
+                
+                ctx.fillStyle = '#888';
+                ctx.font = '9px Share Tech Mono';
+                ctx.fillText(n.c.title.slice(0, 18), n.x, n.y + size + 12);
+            });
+            
+            // Legend
+            ctx.fillStyle = '#444';
+            ctx.font = '11px Share Tech Mono';
+            ctx.textAlign = 'left';
+            ctx.fillText('🟡 Recrutement   🟢 Active   🔵 Atelier en cours   ─── Lien territorial', 15, canvas.height - 15);
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // ATELIERS VIEW
+        // ════════════════════════════════════════════════════════════════════
+        function renderAteliersView() {
+            document.getElementById('sidebar-title').textContent = 'ATELIERS';
+            
+            const active = S.data.ateliers.filter(a => a.status === 'async' || a.status === 'live');
+            const completed = S.data.ateliers.filter(a => a.status === 'completed');
+            
+            let html = `
+                <div class="demo-tip">
+                    <div class="demo-tip-title">📋 ATELIERS</div>
+                    14 jours async + 48h live. Contributions et décisions trackées.
+                </div>
+            `;
+            
+            if (active.length > 0) {
+                html += `<div class="section-title">🔴 EN COURS</div>`;
+                active.forEach(a => {
+                    const c = S.data.cellules.find(x => x.id === a.celluleId);
+                    html += `
+                        <div class="card" onclick="selectCellule(S.data.cellules.find(x=>x.id==='${a.celluleId}'))">
+                            <div class="card-title">${a.title}</div>
+                            <div class="card-meta">${c?.title || ''} • ${a.status === 'live' ? '🔴 LIVE' : 'Phase async'}</div>
+                            <div class="card-meta">${a.contributions?.length || 0} contributions</div>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (completed.length > 0) {
+                html += `<div class="section-title" style="margin-top:1rem;">✅ TERMINÉS</div>`;
+                completed.forEach(a => {
+                    const c = S.data.cellules.find(x => x.id === a.celluleId);
+                    html += `
+                        <div class="card" onclick="selectCellule(S.data.cellules.find(x=>x.id==='${a.celluleId}'))">
+                            <div class="card-title">${a.title}</div>
+                            <div class="card-meta">${c?.title || ''}</div>
+                            <div class="card-meta">${a.outcomes?.length || 0} décisions</div>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (active.length === 0 && completed.length === 0) {
+                html += '<div style="text-align:center;color:#555;padding:2rem;">Aucun atelier<br>Créez une cellule et atteignez le quorum !</div>';
+            }
+            
+            document.getElementById('sidebar-content').innerHTML = html;
+        }
+        
+        // ════════════════════════════════════════════════════════════════════
+        // UTILS
+        // ════════════════════════════════════════════════════════════════════
+        function updateStats() {
+            document.getElementById('stat-cellules').textContent = S.data.cellules.length;
+            document.getElementById('stat-participants').textContent = S.data.cellules.reduce((s, c) => s + c.participants.length, 0);
+            document.getElementById('stat-ateliers').textContent = S.data.ateliers.filter(a => a.status !== 'completed').length;
+        }
+        
+        function toast(msg) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 3000);
+        }
+        
+        window.closeModal = function(id) { document.getElementById(id).classList.add('hidden'); };
+        
+        function getEmoji(t) {
+            const m = { mobilite:'🚲', environnement:'🌱', social:'🤝', numerique:'💻', culture:'🎭', economie:'💼', democratie:'🗳️', education:'📚', sante:'🏥' };
+            return m[t] || '📋';
+        }
+        
+        window.S = S;
+        window.selectCellule = selectCellule;
+        
+        // ════════════════════════════════════════════════════════════════════
+        // EVENTS
+        // ════════════════════════════════════════════════════════════════════
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                S.currentView = this.dataset.view;
+                
+                document.getElementById('graph-view').classList.toggle('active', S.currentView === 'graph');
+                
+                if (S.currentView === 'graph') setTimeout(renderGraph, 50);
+                if (S.currentView === 'ateliers') renderAteliersView();
+                if (S.currentView === 'map') renderList();
+            });
+        });
+        
+        document.getElementById('btn-locate').addEventListener('click', () => {
+            navigator.geolocation?.getCurrentPosition(p => S.map.setView([p.coords.latitude, p.coords.longitude], 12));
+        });
+        
+        document.getElementById('btn-territories').addEventListener('click', function() {
+            S.showTerritories = !S.showTerritories;
+            this.classList.toggle('active', S.showTerritories);
+            if (S.showTerritories) layers.territories.addTo(S.map); else S.map.removeLayer(layers.territories);
+            renderMap();
+        });
+        
+        document.getElementById('btn-links').addEventListener('click', function() {
+            S.showLinks = !S.showLinks;
+            this.classList.toggle('active', S.showLinks);
+            renderMap();
+        });
+        
+        window.addEventListener('resize', () => { if (S.currentView === 'graph') renderGraph(); });
+        
+        // ════════════════════════════════════════════════════════════════════
+        // INIT
+        // ════════════════════════════════════════════════════════════════════
+        renderMap();
+        renderList();
+        updateStats();
+        
+        // Auto-center on first cellule
+        setTimeout(() => S.map.setView([50.6, 4.6], 8), 500);
+    }
+    </script>
+</body>
+</html>
